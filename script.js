@@ -2,15 +2,10 @@ const whatsappNumber = "528333110858";
 const whatsappBaseUrl = `https://wa.me/${whatsappNumber}`;
 
 const whatsappAnchor = document.querySelector("#whatsapp-link");
-const whatsappPlaceholder = document.querySelector("#whatsapp-placeholder");
 const navDropdowns = document.querySelectorAll(".nav-dropdown");
 
 if (whatsappAnchor) {
   whatsappAnchor.href = whatsappBaseUrl;
-}
-
-if (whatsappPlaceholder) {
-  whatsappPlaceholder.textContent = whatsappNumber;
 }
 
 const closeAllDropdowns = () => {
