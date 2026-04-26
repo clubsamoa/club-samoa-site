@@ -6,7 +6,7 @@
     <title>Club Samoa Escuela de Artes Marciales</title>
     <meta
       name="description"
-      content="Horarios, precios, paquetes, torneos y contacto de Club Samoa Escuela de Artes Marciales."
+      content="Horarios, disciplinas y contacto de Club Samoa Escuela de Artes Marciales."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,7 +32,6 @@
           <nav class="site-nav" aria-label="Principal">
             <a href="./index.html" aria-current="page">Inicio</a>
             <a href="#horarios">Horarios</a>
-            <a href="#precios">Precios</a>
             <div class="nav-dropdown">
               <button
                 class="nav-dropdown-toggle"
@@ -48,7 +47,21 @@
                 <a href="./students.html#examenes">Exámenes</a>
               </div>
             </div>
-            <a href="#torneos">Torneos</a>
+            <div class="nav-dropdown">
+              <button
+                class="nav-dropdown-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="community-menu"
+              >
+                Comunidad <span class="dropdown-caret" aria-hidden="true">⌄</span>
+              </button>
+              <div class="nav-dropdown-menu" id="community-menu" hidden>
+                <a href="./community.html">Precios y torneos</a>
+                <a href="./community.html#precios">Precios</a>
+                <a href="./community.html#torneos">Torneos</a>
+              </div>
+            </div>
             <a href="#contacto">Contacto</a>
           </nav>
           <div class="header-actions">
@@ -135,6 +148,7 @@
             </p>
           </div>
           <div class="legacy-quote">
+            <p class="eyebrow">Ubicación</p>
             <p>
               Club Samoa Madero
             </p>
@@ -237,123 +251,6 @@
                   </div>
                 </article>
             </div>
-          </div>
-        </section>
-
-        <section class="section-stack" id="precios">
-          <div class="section-heading pricing-heading">
-            <p class="eyebrow">Precios y Paquetes</p>
-            <h3>Inscripción simple y clase muestra gratis.</h3>
-            <p>
-              Elige una disciplina o entrena con acceso completo. La academia
-              mantiene un esquema claro para nuevos ingresos y alumnos activos.
-            </p>
-          </div>
-          <div class="pricing-shell">
-            <div class="pricing-grid pricing-grid-compare">
-            <article class="pricing-card pricing-card-base">
-              <div class="pricing-top">
-              <p class="price-tag">Mensual</p>
-              <h4>1 Disciplina</h4>
-              <p class="price">$600 MXN</p>
-              <p class="pricing-description">
-                Ideal para alumnos que quieren enfocarse en una sola disciplina.
-              </p>
-              <a class="button button-secondary pricing-button" href="https://wa.me/528333110858" target="_blank" rel="noreferrer">
-                <img class="social-icon" src="./icon-whatsapp.png" alt="" aria-hidden="true" />Solicitar lugar
-              </a>
-              </div>
-              <ul>
-                <li><span class="check-mark">✓</span> Acceso a una disciplina</li>
-                <li><span class="check-mark">✓</span> Horario asignado según grupo</li>
-                <li><span class="check-mark">✓</span> Seguimiento por WhatsApp e Instagram</li>
-                <li><span class="check-mark">✓</span> Clase muestra gratis en la academia</li>
-              </ul>
-            </article>
-            <article class="pricing-card pricing-card-highlight">
-              <div class="pricing-top">
-              <p class="price-tag">Full Access</p>
-              <h4>Acceso completo</h4>
-              <p class="price">$800 MXN</p>
-              <p class="pricing-description">
-                Para quienes quieren aprovechar al máximo el entrenamiento en Club Samoa.
-              </p>
-              <a class="button button-primary pricing-button" href="https://wa.me/528333110858" target="_blank" rel="noreferrer">
-                <img class="social-icon" src="./icon-whatsapp.png" alt="" aria-hidden="true" />Contáctanos ahora
-              </a>
-              </div>
-              <div class="pricing-plus">Todo lo de 1 disciplina, más:</div>
-              <ul>
-                <li><span class="check-mark">✓</span> Acceso a todas las disciplinas</li>
-                <li><span class="check-mark">✓</span> Ideal para alumnos con enfoque competitivo</li>
-                <li><span class="check-mark">✓</span> Mayor flexibilidad de entrenamiento</li>
-                <li><span class="check-mark">✓</span> Mejor combinación entre técnica y condición</li>
-                <li><span class="check-mark">✓</span> Ruta más fuerte para quienes buscan evolución completa</li>
-              </ul>
-            </article>
-            </div>
-            <article class="pricing-card pricing-card-footer">
-              <div class="pricing-footer-copy">
-                <p class="price-tag">Ingreso</p>
-                <h4>Inscripción</h4>
-                <p class="price">$450 MXN</p>
-                <p class="pricing-description">
-                  Pago único para alta del alumno. La clase muestra es gratis.
-                </p>
-              </div>
-              <p class="pricing-note">
-                Nota: la inscripción se cubre una sola vez al iniciar el proceso del alumno.
-              </p>
-            </article>
-          </div>
-        </section>
-
-        <section class="section-stack" id="torneos">
-          <div class="section-heading">
-            <p class="eyebrow">Próximos torneos</p>
-            <h3>Evento destacado para la comunidad competitiva.</h3>
-          </div>
-          <div class="events-list">
-            <article class="event-card featured-event-card">
-              <img
-                class="event-poster"
-                src="./images/estatal-znorte2026.jpeg"
-                alt="Poster del Campeonato Estatal de MMA Zona Norte de Tamaulipas"
-              />
-              <div class="event-copy">
-                <p class="event-date">2 de Mayo 2026</p>
-                <h4>Campeonato Estatal de MMA Zona Norte de Tamaulipas</h4>
-                <p>Nuevo Laredo, Tamaulipas - Nueva Ciudad Deportiva.</p>
-              </div>
-              <a
-                class="button button-primary"
-                href="https://famm.smoothcomp.com/en/event/31781"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Enlace de registro
-              </a>
-            </article>
-            <article class="event-card featured-event-card">
-              <img
-                class="event-poster"
-                src="./images/regional2026.jpg"
-                alt="Poster del Campeonato Regional de Artes Marciales Mixtas 2026"
-              />
-              <div class="event-copy">
-                <p class="event-date">22-24 de Mayo</p>
-                <h4>Campeonato Regional de Artes Marciales Mixtas 2026</h4>
-                <p>Monclova, Coahuila.</p>
-              </div>
-              <a
-                class="button button-primary"
-                href="https://wa.me/528333110858"
-                target="_blank"
-                rel="noreferrer"
-              >
-                <img class="social-icon" src="./icon-whatsapp.png" alt="" aria-hidden="true" />Registro por WhatsApp
-              </a>
-            </article>
           </div>
         </section>
 
