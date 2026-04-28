@@ -1062,6 +1062,29 @@ textarea {
   margin-top: 4px;
 }
 
+.data-form button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+  transform: none;
+}
+
+.form-status {
+  min-height: 1.35em;
+  margin: 0;
+  color: rgba(247, 242, 241, 0.68);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.form-status.is-success {
+  color: #b7f5d2;
+}
+
+.form-status.is-error {
+  color: #ffd4d4;
+}
+
 .events-list {
   display: grid;
   gap: 16px;

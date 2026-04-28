@@ -148,7 +148,7 @@
             />
             <h3>Realiza tu pedido fácil</h3>
             <p>
-              Completa el formulario y envía tu pedido por WhatsApp de forma clara y sin errores.
+              Completa el formulario y tu pedido quedará guardado en la base de uniformes.
             </p>
           </div>
           <form class="data-form" data-form-type="uniforme">
@@ -156,6 +156,37 @@
               <span class="field-label">Nombre del alumno <span class="required-mark">*</span></span>
               <input type="text" name="nombre" placeholder="Nombre completo" required />
               <span class="field-note">Usa el nombre del alumno tal como aparece en clase.</span>
+            </label>
+            <label class="form-field">
+              <span class="field-label">WhatsApp de contacto <span class="required-mark">*</span></span>
+              <input type="tel" name="whatsapp" placeholder="833 000 0000" required />
+              <span class="field-note">Usaremos este número solo para confirmar el pedido.</span>
+            </label>
+            <label class="form-field">
+              <span class="field-label">Disciplina <span class="required-mark">*</span></span>
+              <select name="disciplina" required>
+                <option value="">Selecciona una opción</option>
+                <option>Lima Lama Kids</option>
+                <option>Kickboxing</option>
+                <option>Muay Thai</option>
+                <option>MMA</option>
+                <option>Jiu Jitsu</option>
+                <option>Otra</option>
+              </select>
+              <span class="field-note">Indica la disciplina principal del alumno.</span>
+            </label>
+            <label class="form-field">
+              <span class="field-label">Producto <span class="required-mark">*</span></span>
+              <select name="producto" required>
+                <option value="">Selecciona una opción</option>
+                <option>Uniforme completo</option>
+                <option>Playera</option>
+                <option>Short</option>
+                <option value="Cinturon">Cinturón</option>
+                <option>Guantes</option>
+                <option>Otro</option>
+              </select>
+              <span class="field-note">Selecciona qué pieza necesitas pedir.</span>
             </label>
             <label class="form-field">
               <span class="field-label">Talla <span class="required-mark">*</span></span>
@@ -166,6 +197,12 @@
                 <option>M</option>
                 <option>L</option>
                 <option>XL</option>
+                <option>XXL</option>
+                <option>Infantil 4</option>
+                <option>Infantil 6</option>
+                <option>Infantil 8</option>
+                <option>Infantil 10</option>
+                <option>Otra</option>
               </select>
               <span class="field-note">Selecciona la talla del uniforme que necesitas pedir.</span>
             </label>
@@ -183,8 +220,9 @@
               ></textarea>
               <span class="field-note">Campo opcional para detalles extra del pedido.</span>
             </label>
+            <p class="form-status" data-form-status role="status" aria-live="polite"></p>
             <button class="button button-primary" type="submit">
-              <img class="social-icon" src="./icon-whatsapp.png" alt="" aria-hidden="true" />Enviar pedido por WhatsApp
+              Enviar pedido
             </button>
           </form>
         </section>
@@ -199,7 +237,7 @@
             />
             <h3>Registro rápido para cambio de grado.</h3>
             <p>
-              Si eres alumno actual, utiliza este formulario para enviar tu solicitud con toda la información necesaria para tu cambio de grado.
+              Si eres alumno actual, utiliza este formulario para guardar tu solicitud de cambio de grado.
             </p>
           </div>
           <form class="data-form" data-form-type="examen">
@@ -209,6 +247,20 @@
               <span class="field-note">Escribe el nombre completo del alumno que presentará el examen.</span>
             </label>
             <label class="form-field">
+              <span class="field-label">WhatsApp de contacto <span class="required-mark">*</span></span>
+              <input type="tel" name="whatsapp" placeholder="833 000 0000" required />
+              <span class="field-note">Usaremos este número solo para confirmar detalles del examen.</span>
+            </label>
+            <label class="form-field">
+              <span class="field-label">Disciplina <span class="required-mark">*</span></span>
+              <select name="disciplina" required>
+                <option value="">Selecciona una opción</option>
+                <option>Lima Lama</option>
+                <option>Kickboxing</option>
+              </select>
+              <span class="field-note">Selecciona la disciplina del examen.</span>
+            </label>
+            <label class="form-field">
               <span class="field-label">Grado actual <span class="required-mark">*</span></span>
               <select name="grado" required>
                 <option value="">Selecciona una opción</option>
@@ -216,10 +268,13 @@
                 <option>Cinta Morada</option>
                 <option>Cinta Azul</option>
                 <option>Cinta Verde</option>
-                <option>Cinta Café I</option>
-                <option>Cinta Café II</option>
-                <option>Cinta Café III</option>
+                <option value="Cinta Cafe I">Cinta Café I</option>
+                <option value="Cinta Cafe II">Cinta Café II</option>
+                <option value="Cinta Cafe III">Cinta Café III</option>
                 <option>Cinta Negra</option>
+                <option>Kickboxing - Principiante</option>
+                <option>Kickboxing - Intermedio</option>
+                <option>Kickboxing - Avanzado</option>
               </select>
               <span class="field-note">Indica el grado o cinta actual para validar el registro.</span>
             </label>
@@ -228,12 +283,12 @@
               <select name="fecha" required>
                 <option value="">Selecciona una opción</option>
                 <option>Marzo</option>
-                <option>Abril (KICKBOXING)</option>
+                <option>Abril (Kickboxing)</option>
                 <option>Junio</option>
-                <option>Agosto (KICKBOXING)</option>
+                <option>Agosto (Kickboxing)</option>
                 <option>Septiembre</option>
                 <option>Diciembre</option>
-                <option>Diciembre (KICKBOXING)</option>
+                <option>Diciembre (Kickboxing)</option>
                 <option>Ninguna</option>
               </select>
               <span class="field-note">Selecciona la fecha programada para el cambio de grado.</span>
@@ -247,14 +302,16 @@
               ></textarea>
               <span class="field-note">Campo opcional para dudas, pagos o comentarios.</span>
             </label>
+            <p class="form-status" data-form-status role="status" aria-live="polite"></p>
             <button class="button button-primary" type="submit">
-              <img class="social-icon" src="./icon-whatsapp.png" alt="" aria-hidden="true" />Registrarme por WhatsApp
+              Enviar registro
             </button>
           </form>
         </section>
       </main>
     </div>
 
+    <script src="./registration-config.js"></script>
     <script src="./script.js"></script>
   </body>
   </html>

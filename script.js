@@ -1,8 +1,10 @@
 const whatsappNumber = "528333110858";
 const whatsappBaseUrl = `https://wa.me/${whatsappNumber}`;
+const registrationEndpoint = (window.CLUB_SAMOA_REGISTRATION_ENDPOINT || "").trim();
 
 const whatsappAnchor = document.querySelector("#whatsapp-link");
 const navDropdowns = document.querySelectorAll(".nav-dropdown");
+const registrationForms = document.querySelectorAll("[data-form-type]");
 
 if (whatsappAnchor) {
   whatsappAnchor.href = whatsappBaseUrl;
@@ -56,39 +58,100 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-const buildUniformMessage = (formData) => {
-  return [
-    "Hola, quiero hacer un pedido de uniforme.",
-    `Alumno: ${formData.get("nombre")}`,
-    `Talla: ${formData.get("talla")}`,
-    `Cantidad: ${formData.get("cantidad")}`,
-    `Notas: ${formData.get("notas") || "Sin notas adicionales"}`,
-  ].join("\n");
+const isRegistrationConfigured = () => {
+  return registrationEndpoint && !registrationEndpoint.includes("PASTE_APPS_SCRIPT");
 };
 
-const buildExamMessage = (formData) => {
-  return [
-    "Hola, quiero registrarme a un examen de cambio de grado.",
-    `Alumno: ${formData.get("nombre")}`,
-    `Grado actual: ${formData.get("grado")}`,
-    `Fecha de examen: ${formData.get("fecha")}`,
-    `Observaciones: ${formData.get("notas") || "Sin observaciones"}`,
-  ].join("\n");
+const createSubmissionId = () => {
+  if (window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+
+  return `club-samoa-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-document.querySelectorAll("[data-form-type]").forEach((form) => {
+const setFormStatus = (form, message, state = "") => {
+  const status = form.querySelector("[data-form-status]");
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+  status.classList.toggle("is-success", state === "success");
+  status.classList.toggle("is-error", state === "error");
+};
+
+const setSubmitState = (button, isSubmitting) => {
+  if (!button) {
+    return;
+  }
+
+  if (!button.dataset.defaultLabel) {
+    button.dataset.defaultLabel = button.textContent.trim();
+  }
+
+  button.disabled = isSubmitting;
+  button.textContent = isSubmitting ? "Enviando..." : button.dataset.defaultLabel;
+};
+
+const buildRegistrationPayload = (form) => {
+  const formData = new FormData(form);
+  const formType = form.getAttribute("data-form-type");
+  const payload = new URLSearchParams();
+
+  formData.forEach((value, key) => {
+    payload.append(key, String(value).trim());
+  });
+
+  payload.set("form_type", formType);
+  payload.set("submission_id", createSubmissionId());
+  payload.set("page_url", window.location.href);
+  payload.set("user_agent", window.navigator.userAgent);
+
+  return payload;
+};
+
+registrationForms.forEach((form) => {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
 
-    const formData = new FormData(form);
-    const formType = form.getAttribute("data-form-type");
+    if (!form.reportValidity()) {
+      return;
+    }
 
-    const message =
-      formType === "uniforme"
-        ? buildUniformMessage(formData)
-        : buildExamMessage(formData);
+    if (!isRegistrationConfigured()) {
+      setFormStatus(
+        form,
+        "El registro en línea está listo, pero falta conectar la URL de Google Apps Script.",
+        "error",
+      );
+      return;
+    }
 
-    const url = `${whatsappBaseUrl}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    const submitButton = form.querySelector('button[type="submit"]');
+    const payload = buildRegistrationPayload(form);
+
+    setSubmitState(submitButton, true);
+    setFormStatus(form, "");
+
+    fetch(registrationEndpoint, {
+      method: "POST",
+      mode: "no-cors",
+      body: payload,
+    })
+      .then(() => {
+        form.reset();
+        setFormStatus(form, "Registro enviado correctamente.", "success");
+      })
+      .catch(() => {
+        setFormStatus(
+          form,
+          "No se pudo enviar el registro. Intenta de nuevo en un momento.",
+          "error",
+        );
+      })
+      .finally(() => {
+        setSubmitState(submitButton, false);
+      });
   });
 });
