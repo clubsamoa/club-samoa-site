@@ -117,6 +117,7 @@ const validateCheckboxGroups = (form) => {
 const buildRegistrationPayload = (form) => {
   const formData = new FormData(form);
   const formType = form.getAttribute("data-form-type");
+  const submissionId = createSubmissionId();
   const payload = new URLSearchParams();
   const valuesByKey = new Map();
 
@@ -136,11 +137,27 @@ const buildRegistrationPayload = (form) => {
   });
 
   payload.set("form_type", formType);
-  payload.set("submission_id", createSubmissionId());
+  payload.set("submission_id", submissionId);
   payload.set("page_url", window.location.href);
   payload.set("user_agent", window.navigator.userAgent);
 
-  return payload;
+  return { payload, submissionId };
+};
+
+const showConfirmationPanel = (form, submissionId) => {
+  const section = form.closest(".student-section");
+  const confirmationPanel = section ? section.querySelector("[data-confirmation-panel]") : null;
+  const confirmationId = confirmationPanel ? confirmationPanel.querySelector("[data-confirmation-id]") : null;
+
+  if (!confirmationPanel || !confirmationId) {
+    setFormStatus(form, "Registro enviado correctamente.", "success");
+    return;
+  }
+
+  confirmationId.textContent = submissionId;
+  form.hidden = true;
+  confirmationPanel.hidden = false;
+  confirmationPanel.scrollIntoView({ behavior: "smooth", block: "center" });
 };
 
 registrationForms.forEach((form) => {
@@ -168,7 +185,7 @@ registrationForms.forEach((form) => {
     }
 
     const submitButton = form.querySelector('button[type="submit"]');
-    const payload = buildRegistrationPayload(form);
+    const { payload, submissionId } = buildRegistrationPayload(form);
 
     setSubmitState(submitButton, true);
     setFormStatus(form, "");
@@ -180,7 +197,7 @@ registrationForms.forEach((form) => {
     })
       .then(() => {
         form.reset();
-        setFormStatus(form, "Registro enviado correctamente.", "success");
+        showConfirmationPanel(form, submissionId);
       })
       .catch(() => {
         setFormStatus(

@@ -1120,6 +1120,64 @@ textarea {
   color: #ffd4d4;
 }
 
+.request-confirmation {
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  min-height: 520px;
+  padding: 34px;
+  border: 1px solid rgba(244, 7, 6, 0.2);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(244, 7, 6, 0.16), rgba(255, 255, 255, 0.03)),
+    rgba(18, 6, 7, 0.8);
+  box-shadow:
+    inset 0 1px 0 rgba(247, 242, 241, 0.08),
+    0 20px 48px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(244, 7, 6, 0.06);
+}
+
+.request-confirmation[hidden] {
+  display: none;
+}
+
+.request-confirmation h2 {
+  margin: 0;
+  max-width: 12ch;
+  color: var(--text);
+  font-family: "Oswald", sans-serif;
+  font-size: clamp(2.1rem, 5vw, 4.4rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.request-confirmation p {
+  margin: 0;
+  max-width: 34ch;
+  color: rgba(247, 242, 241, 0.78);
+  font-size: 1.08rem;
+  line-height: 1.5;
+}
+
+.request-confirmation-id {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-family: "Oswald", sans-serif;
+  font-size: clamp(1.35rem, 3vw, 2.2rem);
+  line-height: 1.1;
+}
+
+.request-confirmation span {
+  color: rgba(247, 242, 241, 0.55);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.request-confirmation .button {
+  justify-self: start;
+}
+
 .events-list {
   display: grid;
   gap: 16px;

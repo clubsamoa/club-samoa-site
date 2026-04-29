@@ -51,9 +51,6 @@ const GRADOS = [
   "Cinta Cafe II",
   "Cinta Cafe III",
   "Cinta Negra",
-  "Kickboxing - Principiante",
-  "Kickboxing - Intermedio",
-  "Kickboxing - Avanzado",
 ];
 const FECHAS_EXAMEN = [
   "Marzo",
