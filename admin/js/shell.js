@@ -37,6 +37,12 @@
       icon: "·",
       href: "./js/api.test.html",
     },
+    {
+      key: "tools-atletas-api",
+      label: "Tests · atletas API",
+      icon: "·",
+      href: "./js/atletas-api.test.html",
+    },
   ];
 
   function init() {

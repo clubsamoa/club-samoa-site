@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.1.0",
+  version: "0.2.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -241,8 +241,11 @@ function doPost(e) {
 }
 
 /**
- * Router central. En esta tarea (01) solo expone ping/setup.
- * Las acciones de atletas/eventos/etc. se agregan en tareas posteriores.
+ * Router central.
+ * Acciones disponibles:
+ *   - ping, setup (tarea 01)
+ *   - atletas.list, atletas.get, atletas.create,
+ *     atletas.update, atletas.archive (tarea 05)
  */
 function routeAction_(action, payload) {
   switch (action) {
@@ -263,6 +266,17 @@ function routeAction_(action, payload) {
         tabs: TABS_DEFINITION.map((t) => t.name),
       };
     }
+
+    case "atletas.list":
+      return handleAtletasList_(payload);
+    case "atletas.get":
+      return handleAtletasGet_(payload);
+    case "atletas.create":
+      return handleAtletasCreate_(payload);
+    case "atletas.update":
+      return handleAtletasUpdate_(payload);
+    case "atletas.archive":
+      return handleAtletasArchive_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -351,6 +365,47 @@ function appendRow_(spreadsheet, tabName, obj) {
 }
 
 /**
+ * Encuentra una fila por su valor en la columna "ID".
+ * @returns {{rowIndex: number, row: Object|null}} rowIndex es 1-based
+ *          (incluye encabezado, así que la primera fila de datos es 2).
+ */
+function findRowById_(spreadsheet, tabName, id) {
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Pestaña no encontrada: " + tabName);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return { rowIndex: -1, row: null };
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  for (let i = 0; i < rows.length; i += 1) {
+    if (String(rows[i][0]) === String(id)) {
+      const obj = {};
+      headers.forEach((h, idx) => {
+        obj[h] = rows[i][idx];
+      });
+      return { rowIndex: i + 2, row: obj };
+    }
+  }
+  return { rowIndex: -1, row: null };
+}
+
+/**
+ * Sobrescribe una fila existente. Los headers no presentes en obj
+ * conservan su valor actual (no se borran).
+ */
+function writeRow_(spreadsheet, tabName, rowIndex, obj) {
+  const sheet = spreadsheet.getSheetByName(tabName);
+  if (!sheet) throw new Error("Pestaña no encontrada: " + tabName);
+  const lastCol = sheet.getLastColumn();
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const current = sheet.getRange(rowIndex, 1, 1, lastCol).getValues()[0];
+  const next = headers.map((header, idx) =>
+    header in obj ? obj[header] : current[idx],
+  );
+  sheet.getRange(rowIndex, 1, 1, lastCol).setValues([next]);
+}
+
+/**
  * Genera el siguiente ID secuencial para una pestaña dada.
  * Formato: `${prefix}_${N}` donde N se busca en la columna ID.
  */
@@ -382,4 +437,257 @@ function value_(payload, key) {
   return payload[key] === undefined || payload[key] === null
     ? ""
     : String(payload[key]).trim();
+}
+
+/* ============================================================
+ * Atletas — definición de campos y mappers
+ * ============================================================ */
+
+const GENEROS = ["Masculino", "Femenino"];
+const NIVELES = ["Novato", "Principiante", "Intermedio", "Avanzado"];
+
+/**
+ * Definición declarativa de los campos del atleta. Mantiene en un solo
+ * lugar: orden, header en la Sheet, tipo, validaciones, defaults.
+ */
+const ATLETAS_FIELDS = [
+  { key: "id",                 header: "ID",                  type: "string",   system: true },
+  { key: "nombre_completo",    header: "Nombre completo",     type: "string",   required: true, editable: true },
+  { key: "fecha_nacimiento",   header: "Fecha nacimiento",    type: "date",     required: true, editable: true },
+  { key: "genero",             header: "Genero",              type: "enum",     values: GENEROS,  required: true, editable: true },
+  { key: "anios_practica",     header: "Anios practica",      type: "number",   required: true, editable: true, min: 0 },
+  { key: "nivel",              header: "Nivel",               type: "enum",     values: NIVELES,  required: true, editable: true },
+  { key: "peso_referencia_kg", header: "Peso referencia (kg)", type: "number",  required: true, editable: true, min: 0.1 },
+  { key: "academia",           header: "Academia",            type: "string",   editable: true },
+  { key: "pais",               header: "Pais",                type: "string",   editable: true, default: "México" },
+  { key: "foto_url",           header: "Foto URL",            type: "string",   editable: true },
+  { key: "activo",             header: "Activo",              type: "boolean",  system: true },
+  { key: "creado_en",          header: "Creado en",           type: "datetime", system: true },
+];
+
+/**
+ * Convierte una fila leída de la Sheet (objeto {header: value}) a un
+ * atleta JSON-friendly con keys snake_case.
+ */
+function rowToAtleta_(row) {
+  const out = {};
+  ATLETAS_FIELDS.forEach((field) => {
+    out[field.key] = normalizeOutput_(row[field.header], field.type);
+  });
+  return out;
+}
+
+function normalizeOutput_(raw, type) {
+  if (raw === "" || raw === null || raw === undefined) {
+    if (type === "boolean") return false;
+    if (type === "number") return null;
+    return "";
+  }
+  switch (type) {
+    case "boolean":
+      if (typeof raw === "boolean") return raw;
+      const s = String(raw).trim().toLowerCase();
+      return s === "true" || s === "yes" || s === "sí" || s === "1";
+    case "number":
+      const n = Number(raw);
+      return isFinite(n) ? n : null;
+    case "date":
+      if (raw instanceof Date && !isNaN(raw.getTime())) {
+        return Utilities.formatDate(raw, Session.getScriptTimeZone(), "yyyy-MM-dd");
+      }
+      return String(raw);
+    case "datetime":
+      if (raw instanceof Date && !isNaN(raw.getTime())) {
+        return raw.toISOString();
+      }
+      return String(raw);
+    default:
+      return String(raw);
+  }
+}
+
+/**
+ * Convierte un atleta (snake_case) a un objeto {header: value} listo
+ * para appendRow_ / writeRow_.
+ */
+function atletaToRow_(atleta) {
+  const row = {};
+  ATLETAS_FIELDS.forEach((field) => {
+    if (!(field.key in atleta)) return;
+    row[field.header] = normalizeInput_(atleta[field.key], field.type);
+  });
+  return row;
+}
+
+function normalizeInput_(raw, type) {
+  if (raw === null || raw === undefined) return "";
+  switch (type) {
+    case "boolean":
+      return Boolean(raw);
+    case "number":
+      const n = Number(raw);
+      return isFinite(n) ? n : "";
+    case "date":
+      if (raw instanceof Date) return raw;
+      const m = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+      }
+      const d = new Date(String(raw));
+      return isNaN(d.getTime()) ? "" : d;
+    case "datetime":
+      if (raw instanceof Date) return raw;
+      const dt = new Date(String(raw));
+      return isNaN(dt.getTime()) ? "" : dt;
+    default:
+      return String(raw).trim();
+  }
+}
+
+/**
+ * Valida campos editables. Lanza Error si algo no cumple.
+ * En modo create, los required deben estar presentes.
+ * En modo update, solo valida los campos que vengan en el payload.
+ */
+function validateAtleta_(payload, opts) {
+  const isUpdate = opts && opts.isUpdate;
+  ATLETAS_FIELDS.forEach((field) => {
+    if (field.system) return;
+    const present = field.key in payload;
+
+    if (!isUpdate && field.required && !present) {
+      throw new Error("Falta campo requerido: " + field.key);
+    }
+    if (!present) return;
+
+    const v = payload[field.key];
+    const emptyish = v === null || v === undefined || String(v).trim() === "";
+    if (field.required && emptyish) {
+      throw new Error("Campo requerido vacío: " + field.key);
+    }
+    if (!field.required && emptyish) return;
+
+    switch (field.type) {
+      case "enum":
+        if (field.values && field.values.indexOf(String(v)) < 0) {
+          throw new Error(
+            field.key + " debe ser uno de [" + field.values.join(", ") + "], recibido: " + v,
+          );
+        }
+        break;
+      case "number": {
+        const n = Number(v);
+        if (!isFinite(n)) {
+          throw new Error(field.key + " debe ser número, recibido: " + v);
+        }
+        if (field.min !== undefined && n < field.min) {
+          throw new Error(field.key + " debe ser >= " + field.min);
+        }
+        break;
+      }
+      case "date": {
+        const parsed = normalizeInput_(v, "date");
+        if (!(parsed instanceof Date) || isNaN(parsed.getTime())) {
+          throw new Error(field.key + " no es una fecha válida (use YYYY-MM-DD)");
+        }
+        const year = parsed.getFullYear();
+        const today = new Date();
+        if (year < 1900 || parsed > today) {
+          throw new Error(field.key + " fuera de rango razonable (1900–hoy)");
+        }
+        break;
+      }
+    }
+  });
+}
+
+/* ============================================================
+ * Atletas — action handlers
+ * ============================================================ */
+
+function handleAtletasList_(payload) {
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const rows = readRows_(spreadsheet, EVENTOS_TABS.atletas);
+  const includeArchived =
+    payload.include_archived === true ||
+    String(payload.include_archived).toLowerCase() === "true";
+  const atletas = rows
+    .map(rowToAtleta_)
+    .filter((a) => includeArchived || a.activo === true);
+  return { ok: true, count: atletas.length, atletas: atletas };
+}
+
+function handleAtletasGet_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.atletas, payload.id);
+  if (!row) throw new Error("Atleta no encontrado: " + payload.id);
+  return { ok: true, atleta: rowToAtleta_(row) };
+}
+
+function handleAtletasCreate_(payload) {
+  validateAtleta_(payload, { isUpdate: false });
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const id = nextId_(spreadsheet, EVENTOS_TABS.atletas, "atl");
+
+  const atleta = { id: id, activo: true, creado_en: new Date() };
+  ATLETAS_FIELDS.forEach((field) => {
+    if (field.system) return;
+    if (field.key in payload && payload[field.key] !== null && payload[field.key] !== "") {
+      atleta[field.key] = payload[field.key];
+    } else if (field.default !== undefined) {
+      atleta[field.key] = field.default;
+    } else {
+      atleta[field.key] = "";
+    }
+  });
+
+  appendRow_(spreadsheet, EVENTOS_TABS.atletas, atletaToRow_(atleta));
+
+  // Re-leemos para devolver lo que efectivamente quedó en la Sheet
+  // (fechas, ID, etc. ya con los formatos correctos).
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.atletas, id);
+  return { ok: true, atleta: rowToAtleta_(row) };
+}
+
+function handleAtletasUpdate_(payload) {
+  requireFields_(payload, ["id"]);
+  validateAtleta_(payload, { isUpdate: true });
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.atletas, payload.id);
+  if (!row) throw new Error("Atleta no encontrado: " + payload.id);
+
+  // Tomamos el estado actual y aplicamos cambios editables del payload.
+  const next = {};
+  ATLETAS_FIELDS.forEach((field) => {
+    if (field.system) {
+      next[field.header] = row[field.header]; // preservar ID, Activo, Creado en
+      return;
+    }
+    if (field.editable && field.key in payload) {
+      next[field.header] = normalizeInput_(payload[field.key], field.type);
+    } else {
+      next[field.header] = row[field.header];
+    }
+  });
+
+  writeRow_(spreadsheet, EVENTOS_TABS.atletas, rowIndex, next);
+
+  const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.atletas, payload.id);
+  return { ok: true, atleta: rowToAtleta_(finalRow) };
+}
+
+function handleAtletasArchive_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.atletas, payload.id);
+  if (!row) throw new Error("Atleta no encontrado: " + payload.id);
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.atletas);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const col = headers.indexOf("Activo") + 1;
+  if (col <= 0) throw new Error("Columna 'Activo' no encontrada en Atletas.");
+  sheet.getRange(rowIndex, col).setValue(false);
+
+  return { ok: true, id: payload.id, activo: false };
 }
