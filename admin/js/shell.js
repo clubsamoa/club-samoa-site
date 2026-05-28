@@ -43,6 +43,12 @@
       icon: "·",
       href: "./js/atletas-api.test.html",
     },
+    {
+      key: "tools-atletas-seed",
+      label: "Seed · atletas demo",
+      icon: "+",
+      href: "./js/atletas-seed.html",
+    },
   ];
 
   function init() {

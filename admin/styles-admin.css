@@ -426,3 +426,351 @@ textarea {
     align-items: stretch;
   }
 }
+
+/* =============================================================
+   Toolbar (filtros + búsqueda + count)
+   ============================================================= */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 18px;
+  flex-wrap: wrap;
+}
+
+.toolbar-search {
+  flex: 1 1 280px;
+  min-width: 220px;
+}
+
+.toolbar-search input[type="search"] {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.toolbar-search input[type="search"]:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+  background: var(--panel-2);
+}
+
+.toolbar-search input[type="search"]::placeholder {
+  color: var(--muted-2);
+}
+
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-count {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+  min-width: 80px;
+  text-align: right;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn-group {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.btn-group .btn {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 14px;
+}
+
+.btn-group .btn + .btn {
+  border-left: 1px solid var(--line);
+}
+
+.btn-group .btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.btn-group .btn.is-active {
+  background: rgba(244, 7, 6, 0.18);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 12px 0 12px;
+}
+
+.select-wrap .select-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.select-wrap select {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 4px 8px 0;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 18px;
+  background-image: linear-gradient(
+      45deg,
+      transparent 50%,
+      var(--muted) 50%
+    ),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 10px) calc(50% - 1px),
+    calc(100% - 5px) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.select-wrap select:focus {
+  outline: none;
+}
+
+/* =============================================================
+   Tabla de datos
+   ============================================================= */
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 720px;
+}
+
+.data-table thead th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg-soft);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.data-table th.num,
+.data-table td.num {
+  text-align: right;
+}
+
+.data-table th.actions,
+.data-table td.actions {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid var(--line);
+  transition: background 0.1s;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(247, 242, 241, 0.03);
+}
+
+.data-table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.data-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  color: var(--text);
+}
+
+/* Celda del atleta (foto + nombre + país) */
+
+.atleta-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.avatar-placeholder {
+  background: linear-gradient(135deg, #2a1414, var(--button-red-deep));
+  color: #f7f2f1;
+}
+
+.atleta-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.atleta-info strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.atleta-pais {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Badges */
+
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.badge-genero.badge-m {
+  background: rgba(86, 138, 200, 0.18);
+  color: #9ec2f2;
+}
+
+.badge-genero.badge-f {
+  background: rgba(220, 130, 200, 0.18);
+  color: #f0a8d8;
+}
+
+.badge-division {
+  background: rgba(247, 242, 241, 0.08);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.badge-nivel {
+  background: rgba(247, 242, 241, 0.06);
+}
+
+.badge-nivel-novato {
+  background: rgba(140, 140, 140, 0.18);
+  color: #c5c5c5;
+}
+.badge-nivel-principiante {
+  background: rgba(86, 160, 86, 0.18);
+  color: #a8d9a8;
+}
+.badge-nivel-intermedio {
+  background: rgba(220, 165, 70, 0.18);
+  color: #f0c89a;
+}
+.badge-nivel-avanzado {
+  background: rgba(244, 7, 6, 0.22);
+  color: #ffb0b0;
+}
+
+/* Loading / error / messages */
+
+.loading-message {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.error-state {
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid rgba(244, 7, 6, 0.35);
+  border-radius: var(--radius);
+}
+
+.error-state h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 16px;
+}
+
+.error-state p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  word-break: break-word;
+}
+
+/* Mobile */
+
+@media (max-width: 760px) {
+  .toolbar {
+    gap: 10px;
+  }
+  .toolbar-count {
+    margin-left: 0;
+    text-align: left;
+  }
+  .data-table {
+    font-size: 12px;
+    min-width: 640px;
+  }
+  .data-table td,
+  .data-table thead th {
+    padding: 10px 10px;
+  }
+  .atleta-cell {
+    min-width: 160px;
+  }
+  .avatar {
+    width: 32px;
+    height: 32px;
+  }
+}
+
