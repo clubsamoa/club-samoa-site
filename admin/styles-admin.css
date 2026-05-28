@@ -1,0 +1,428 @@
+/* =============================================================
+   Club Samoa — Admin shell
+   Paleta y tipografía consistentes con styles.css del sitio público,
+   pero más densa, utilitaria y rápida (sin smoke background).
+   ============================================================= */
+
+:root {
+  --bg: #0c0907;
+  --bg-soft: #17110f;
+  --panel: #13100e;
+  --panel-2: #1c1614;
+  --line: rgba(247, 242, 241, 0.12);
+  --line-strong: rgba(247, 242, 241, 0.22);
+  --text: #f7f2f1;
+  --muted: rgba(247, 242, 241, 0.62);
+  --muted-2: rgba(247, 242, 241, 0.38);
+  --brand: #f40706;
+  --brand-deep: #a10405;
+  --button-red: #ae0000;
+  --button-red-deep: #7f0000;
+  --accent-amber: #f0b040;
+  --accent-green: #6ad06a;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
+  --radius: 10px;
+  --gap: 16px;
+  --header-h: 64px;
+  --sidebar-w: 240px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* =============================================================
+   Layout: header arriba, sidebar izquierda, main a la derecha.
+   ============================================================= */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--header-h) 1fr;
+  grid-template-areas:
+    "header header"
+    "sidebar main";
+  min-height: 100vh;
+}
+
+/* ---------- Header ---------- */
+
+.admin-header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-brand img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.admin-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.admin-brand-text strong {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-brand-text span {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-header-link {
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.admin-header-link:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+  background: var(--panel-2);
+}
+
+/* ---------- Sidebar ---------- */
+
+.admin-sidebar {
+  grid-area: sidebar;
+  background: var(--bg-soft);
+  border-right: 1px solid var(--line);
+  padding: 18px 0;
+  overflow-y: auto;
+}
+
+.admin-sidebar-section {
+  padding: 10px 18px 6px;
+  font-size: 11px;
+  color: var(--muted-2);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  color: var(--muted);
+  border-left: 3px solid transparent;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  font-size: 14px;
+}
+
+.admin-nav a:hover {
+  color: var(--text);
+  background: rgba(247, 242, 241, 0.04);
+}
+
+.admin-nav a.is-active {
+  color: var(--text);
+  background: rgba(244, 7, 6, 0.08);
+  border-left-color: var(--brand);
+  font-weight: 600;
+}
+
+.admin-nav-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+/* ---------- Main ---------- */
+
+.admin-main {
+  grid-area: main;
+  padding: 28px 32px 64px;
+  min-width: 0; /* permite que tablas/long text no rompan el grid */
+}
+
+.admin-main-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+
+.admin-main-header h1 {
+  margin: 0;
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.admin-main-header .admin-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.admin-main-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* =============================================================
+   Componentes utilitarios
+   ============================================================= */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+
+.btn:hover {
+  background: #2a2220;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--button-red);
+  border-color: var(--button-red-deep);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--brand);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.btn-ghost:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card + .card {
+  margin-top: 16px;
+}
+
+.placeholder {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--panel);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.placeholder h2 {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.placeholder p {
+  margin: 0 auto;
+  max-width: 460px;
+  color: var(--muted);
+}
+
+.placeholder .placeholder-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(240, 176, 64, 0.12);
+  color: var(--accent-amber);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.placeholder-list {
+  list-style: none;
+  padding: 0;
+  margin: 24px auto 0;
+  max-width: 460px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.placeholder-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.placeholder-list li:last-child {
+  border-bottom: 0;
+}
+
+/* =============================================================
+   Responsive — mobile <= 760px
+   La sidebar se colapsa a tabs horizontales arriba.
+   ============================================================= */
+
+@media (max-width: 760px) {
+  :root {
+    --header-h: 56px;
+  }
+
+  .admin-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: var(--header-h) auto 1fr;
+    grid-template-areas:
+      "header"
+      "sidebar"
+      "main";
+  }
+
+  .admin-header {
+    padding: 0 14px;
+  }
+
+  .admin-brand-text span {
+    display: none;
+  }
+
+  .admin-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 6px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .admin-sidebar-section {
+    display: none;
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    gap: 4px;
+    padding: 0 10px;
+  }
+
+  .admin-nav a {
+    padding: 8px 12px;
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 6px 6px 0 0;
+    white-space: nowrap;
+  }
+
+  .admin-nav a.is-active {
+    border-left-color: transparent;
+    border-bottom-color: var(--brand);
+    background: rgba(244, 7, 6, 0.12);
+  }
+
+  .admin-main {
+    padding: 20px 16px 40px;
+  }
+
+  .admin-main-header h1 {
+    font-size: 22px;
+  }
+
+  .admin-main-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
