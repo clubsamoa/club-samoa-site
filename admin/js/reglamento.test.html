@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tests — Reglamento FAMM 2025</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #111;
+        color: #f7f2f1;
+        padding: 24px;
+        max-width: 900px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+      }
+      .subtitle {
+        margin: 0 0 24px;
+        color: #b8aea8;
+      }
+      .summary {
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin: 0 0 18px;
+        font-weight: bold;
+      }
+      .summary.pass {
+        background: #1e3a1e;
+        color: #b8e8b8;
+      }
+      .summary.fail {
+        background: #4a1414;
+        color: #f4b9b9;
+      }
+      ul.cases {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ul.cases li {
+        padding: 8px 12px;
+        border-bottom: 1px solid #2a2a2a;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      ul.cases li.pass::before {
+        content: "✓";
+        color: #6ad06a;
+        font-weight: bold;
+      }
+      ul.cases li.fail::before {
+        content: "✗";
+        color: #ff7777;
+        font-weight: bold;
+      }
+      .case-name {
+        color: #f7f2f1;
+        flex: 1;
+      }
+      .case-detail {
+        color: #b8aea8;
+        font-size: 12px;
+        margin-left: 24px;
+        white-space: pre-wrap;
+      }
+      footer {
+        margin-top: 32px;
+        color: #8a807a;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tests — Reglamento FAMM 2025</h1>
+    <p class="subtitle">
+      Suite de asserts para <code>admin/js/reglamento.js</code>. Abrir esta página
+      en el navegador; los resultados aparecen abajo y también en la consola
+      (DevTools).
+    </p>
+
+    <div id="summary" class="summary">Corriendo…</div>
+    <ul id="results" class="cases"></ul>
+
+    <footer>
+      Referencia: <code>PRD-brackets-mma.md</code> §8 y
+      <code>Reglamento Unificado MMA 2025.pdf</code> (FAMM/IMMAF).
+    </footer>
+
+    <script src="./reglamento.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        var results = [];
+
+        function assert(name, actual, expected) {
+          var pass = deepEqual(actual, expected);
+          results.push({
+            name: name,
+            pass: pass,
+            actual: actual,
+            expected: expected,
+          });
+        }
+
+        function assertTrue(name, actual) {
+          var pass = actual === true;
+          results.push({ name: name, pass: pass, actual: actual, expected: true });
+        }
+
+        function assertThrows(name, fn) {
+          var threw = false;
+          try {
+            fn();
+          } catch (e) {
+            threw = true;
+          }
+          results.push({
+            name: name,
+            pass: threw,
+            actual: threw ? "(threw)" : "(no throw)",
+            expected: "(threw)",
+          });
+        }
+
+        function deepEqual(a, b) {
+          if (a === b) return true;
+          if (typeof a !== typeof b) return false;
+          if (a && b && typeof a === "object") {
+            var ak = Object.keys(a);
+            var bk = Object.keys(b);
+            if (ak.length !== bk.length) return false;
+            for (var i = 0; i < ak.length; i += 1) {
+              if (!deepEqual(a[ak[i]], b[ak[i]])) return false;
+            }
+            return true;
+          }
+          return false;
+        }
+
+        // -------------------------------------------------------
+        // 1. División por edad
+        // -------------------------------------------------------
+        // Adulto: 25 años a la fecha del evento.
+        assert(
+          "calcularDivisionEdad — adulto de 25 años",
+          Reglamento.calcularDivisionEdad("2001-03-15", "2026-08-07"),
+          "Adultos",
+        );
+        // Juvenil D: 10 años cumplidos.
+        assert(
+          "calcularDivisionEdad — niño que cumple 10 antes del evento",
+          Reglamento.calcularDivisionEdad("2016-01-01", "2026-08-07"),
+          "Juvenil D",
+        );
+        // Juvenil A: 17 años.
+        assert(
+          "calcularDivisionEdad — adolescente de 17",
+          Reglamento.calcularDivisionEdad("2009-05-20", "2026-08-07"),
+          "Juvenil A",
+        );
+        // Junior: 18 cumplidos.
+        assert(
+          "calcularDivisionEdad — junior de 18",
+          Reglamento.calcularDivisionEdad("2008-06-01", "2026-08-07"),
+          "Junior",
+        );
+        // Mini 1: 4 años.
+        assert(
+          "calcularDivisionEdad — Mini 1 (4 años)",
+          Reglamento.calcularDivisionEdad("2022-01-01", "2026-08-07"),
+          "Mini 1",
+        );
+        // Fuera de rango: 3 años → string vacío.
+        assert(
+          "calcularDivisionEdad — fuera de rango (3 años)",
+          Reglamento.calcularDivisionEdad("2023-01-01", "2026-08-07"),
+          "",
+        );
+        // Edge case: cumple años justo el día del evento.
+        assert(
+          "calcularDivisionEdad — cumple 21 el día del evento",
+          Reglamento.calcularDivisionEdad("2005-08-07", "2026-08-07"),
+          "Adultos",
+        );
+        // Edge case: cumple 21 un día después del evento (aún tiene 20).
+        assert(
+          "calcularDivisionEdad — cumple 21 al día siguiente del evento",
+          Reglamento.calcularDivisionEdad("2005-08-08", "2026-08-07"),
+          "Junior",
+        );
+
+        // -------------------------------------------------------
+        // 2. Sugerencia de nivel
+        // -------------------------------------------------------
+        assert("sugerirNivel — 0 años → Novato", Reglamento.sugerirNivel(0), "Novato");
+        assert(
+          "sugerirNivel — 0.5 años → Novato",
+          Reglamento.sugerirNivel(0.5),
+          "Novato",
+        );
+        assert(
+          "sugerirNivel — exactamente 1 año → Novato",
+          Reglamento.sugerirNivel(1),
+          "Novato",
+        );
+        assert(
+          "sugerirNivel — 1.5 años → Principiante",
+          Reglamento.sugerirNivel(1.5),
+          "Principiante",
+        );
+        assert(
+          "sugerirNivel — 2 años → Principiante",
+          Reglamento.sugerirNivel(2),
+          "Principiante",
+        );
+        assert(
+          "sugerirNivel — 2.5 años → Intermedio",
+          Reglamento.sugerirNivel(2.5),
+          "Intermedio",
+        );
+        assert(
+          "sugerirNivel — 3 años → Intermedio",
+          Reglamento.sugerirNivel(3),
+          "Intermedio",
+        );
+        assert(
+          "sugerirNivel — 3.1 años → Avanzado",
+          Reglamento.sugerirNivel(3.1),
+          "Avanzado",
+        );
+        assert(
+          "sugerirNivel — 10 años → Avanzado",
+          Reglamento.sugerirNivel(10),
+          "Avanzado",
+        );
+
+        // -------------------------------------------------------
+        // 3. Categoría de peso — Adultos
+        // -------------------------------------------------------
+        assert(
+          "calcularCategoriaPeso — Adultos Masculino 69.5 kg → Peso Ligero",
+          Reglamento.calcularCategoriaPeso("Adultos", "Masculino", 69.5),
+          { nombre: "Peso Ligero", pesoMax: 70.3 },
+        );
+        assert(
+          "calcularCategoriaPeso — Adultos Femenino 47 kg → Átomo",
+          Reglamento.calcularCategoriaPeso("Adultos", "Femenino", 47),
+          { nombre: "Átomo", pesoMax: 47.7 },
+        );
+        assert(
+          "calcularCategoriaPeso — Adultos Masculino 100 kg → Superpesado",
+          Reglamento.calcularCategoriaPeso("Adultos", "Masculino", 100),
+          { nombre: "Superpesado", pesoMax: Infinity },
+        );
+        assert(
+          "calcularCategoriaPeso — Adultos Masculino exactamente 70.3 kg → Superligero",
+          Reglamento.calcularCategoriaPeso("Adultos", "Masculino", 70.3),
+          { nombre: "Superligero", pesoMax: 74.8 },
+        );
+
+        // -------------------------------------------------------
+        // 4. Categoría de peso — Juvenil A
+        // -------------------------------------------------------
+        assert(
+          "calcularCategoriaPeso — Juvenil A Masculino 70 kg → Ligero",
+          Reglamento.calcularCategoriaPeso("Juvenil A", "Masculino", 70),
+          { nombre: "Ligero", pesoMax: 70.3 },
+        );
+        assert(
+          "calcularCategoriaPeso — Juvenil A Femenino 46 kg → Átomo",
+          Reglamento.calcularCategoriaPeso("Juvenil A", "Femenino", 46),
+          { nombre: "Átomo", pesoMax: 47.6 },
+        );
+
+        // -------------------------------------------------------
+        // 5. Categoría de peso — categorías de niños (numéricas)
+        // -------------------------------------------------------
+        assert(
+          "calcularCategoriaPeso — Infantil 26 kg → Menos 27 kg",
+          Reglamento.calcularCategoriaPeso("Infantil", "Masculino", 26),
+          { nombre: "Menos 27 kg", pesoMax: 27 },
+        );
+        assert(
+          "calcularCategoriaPeso — Juvenil D 38 kg → Menos 40 kg",
+          Reglamento.calcularCategoriaPeso("Juvenil D", "Femenino", 38),
+          { nombre: "Menos 40 kg", pesoMax: 40 },
+        );
+
+        // -------------------------------------------------------
+        // 6. Casos límite categoría de peso
+        // -------------------------------------------------------
+        assert(
+          "calcularCategoriaPeso — peso 0 → null",
+          Reglamento.calcularCategoriaPeso("Adultos", "Masculino", 0),
+          null,
+        );
+        assert(
+          "calcularCategoriaPeso — peso negativo → null",
+          Reglamento.calcularCategoriaPeso("Adultos", "Masculino", -5),
+          null,
+        );
+        assert(
+          "calcularCategoriaPeso — división inválida → []",
+          Reglamento.categoriasPesoPara("NoExiste", "Masculino"),
+          [],
+        );
+
+        // -------------------------------------------------------
+        // 7. Tiempos de pelea
+        // -------------------------------------------------------
+        assert(
+          "tiempoPelea — Adultos Avanzado, final → 3 rounds × 3 min, 1 min descanso",
+          Reglamento.tiempoPelea("Adultos", "Avanzado", true),
+          { rounds: 3, segundosPorRound: 180, segundosDescanso: 60 },
+        );
+        assert(
+          "tiempoPelea — Adultos Avanzado, eliminatoria → 1 round × 5 min",
+          Reglamento.tiempoPelea("Adultos", "Avanzado", false),
+          { rounds: 1, segundosPorRound: 300, segundosDescanso: 0 },
+        );
+        assert(
+          "tiempoPelea — Adultos Novato, final → 1 round × 4 min",
+          Reglamento.tiempoPelea("Adultos", "Novato", true),
+          { rounds: 1, segundosPorRound: 240, segundosDescanso: 0 },
+        );
+        assert(
+          "tiempoPelea — Juvenil A Avanzado, final → 3 rounds × 2 min",
+          Reglamento.tiempoPelea("Juvenil A", "Avanzado", true),
+          { rounds: 3, segundosPorRound: 120, segundosDescanso: 60 },
+        );
+        assert(
+          "tiempoPelea — Juvenil B Avanzado, eliminatoria → 1 round × 3 min",
+          Reglamento.tiempoPelea("Juvenil B", "Avanzado", false),
+          { rounds: 1, segundosPorRound: 180, segundosDescanso: 0 },
+        );
+        assert(
+          "tiempoPelea — Juvenil D Avanzado, final → 1 round × 2 min",
+          Reglamento.tiempoPelea("Juvenil D", "Avanzado", true),
+          { rounds: 1, segundosPorRound: 120, segundosDescanso: 0 },
+        );
+        assert(
+          "tiempoPelea — Junior Avanzado, final → 3 rounds × 3 min",
+          Reglamento.tiempoPelea("Junior", "Avanzado", true),
+          { rounds: 3, segundosPorRound: 180, segundosDescanso: 60 },
+        );
+        assertThrows("tiempoPelea — división inválida lanza error", function () {
+          Reglamento.tiempoPelea("NoExiste", "Avanzado", false);
+        });
+        assertThrows("tiempoPelea — nivel inválido lanza error", function () {
+          Reglamento.tiempoPelea("Adultos", "Maestro", false);
+        });
+
+        // -------------------------------------------------------
+        // 8. Constantes
+        // -------------------------------------------------------
+        assertTrue(
+          "DIVISIONES tiene 9 entradas",
+          Reglamento.DIVISIONES.length === 9,
+        );
+        assertTrue(
+          "NIVELES tiene 4 entradas",
+          Reglamento.NIVELES.length === 4,
+        );
+        assertTrue(
+          "METODOS_FINALIZACION contiene 'KO (Knockout efectivo)'",
+          Reglamento.METODOS_FINALIZACION.indexOf("KO (Knockout efectivo)") >= 0,
+        );
+        assertTrue(
+          "METODOS_FINALIZACION contiene 'Decisión Unánime'",
+          Reglamento.METODOS_FINALIZACION.indexOf("Decisión Unánime") >= 0,
+        );
+
+        // -------------------------------------------------------
+        // Render
+        // -------------------------------------------------------
+        var ul = document.getElementById("results");
+        var pass = 0;
+        var fail = 0;
+        results.forEach(function (r) {
+          var li = document.createElement("li");
+          li.className = r.pass ? "pass" : "fail";
+          var name = document.createElement("span");
+          name.className = "case-name";
+          name.textContent = r.name;
+          li.appendChild(name);
+          if (!r.pass) {
+            var detail = document.createElement("div");
+            detail.className = "case-detail";
+            detail.textContent =
+              "esperado: " +
+              JSON.stringify(r.expected) +
+              "\nactual:   " +
+              JSON.stringify(r.actual);
+            li.appendChild(detail);
+          }
+          ul.appendChild(li);
+          if (r.pass) pass += 1;
+          else fail += 1;
+          console[r.pass ? "log" : "error"](
+            (r.pass ? "✓ " : "✗ ") + r.name,
+            r.pass ? "" : { esperado: r.expected, actual: r.actual },
+          );
+        });
+
+        var summary = document.getElementById("summary");
+        summary.textContent =
+          (fail === 0 ? "✅ " : "❌ ") +
+          pass +
+          " pasaron, " +
+          fail +
+          " fallaron (total " +
+          (pass + fail) +
+          ").";
+        summary.className = "summary " + (fail === 0 ? "pass" : "fail");
+        console.log(summary.textContent);
+      })();
+    </script>
+  </body>
+</html>
