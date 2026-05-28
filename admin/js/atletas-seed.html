@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Seed atletas de muestra · Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #111;
+        color: #f7f2f1;
+        padding: 24px;
+        max-width: 760px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 22px;
+      }
+      p.subtitle {
+        color: #b8aea8;
+        margin: 0 0 18px;
+      }
+      button {
+        padding: 10px 16px;
+        background: #ae0000;
+        color: #f7f2f1;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        margin-right: 8px;
+      }
+      button:hover { background: #f40706; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .secondary {
+        background: transparent;
+        border: 1px solid rgba(247, 242, 241, 0.2);
+      }
+      .secondary:hover {
+        background: #1c1614;
+      }
+      pre {
+        background: #1c1614;
+        padding: 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        overflow-x: auto;
+        margin: 20px 0 0;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid rgba(247, 242, 241, 0.1);
+      }
+      .ok { color: #6ad06a; }
+      .err { color: #ff7777; }
+      .info { color: #b8aea8; }
+    </style>
+  </head>
+  <body>
+    <h1>Seed de atletas de muestra</h1>
+    <p class="subtitle">
+      Crea atletas variados (distintos géneros, edades, niveles, academias)
+      para tener data realista mientras desarrollamos la UI. Cada atleta
+      creado se queda activo en la Sheet hasta que tú lo archives manualmente.
+    </p>
+
+    <button id="btn-seed">Crear 6 atletas de muestra</button>
+    <a href="../atletas.html" class="secondary" style="display:inline-block; padding:10px 16px; border-radius:6px; text-decoration:none; color:#f7f2f1; border:1px solid rgba(247,242,241,0.2);">← Volver al listado</a>
+
+    <pre id="output">Esperando…</pre>
+
+    <script src="../../registration-config.js"></script>
+    <script src="./api.js"></script>
+    <script>
+      var ATLETAS_DE_MUESTRA = [
+        {
+          nombre_completo: "Jorge Antonio Luna",
+          fecha_nacimiento: "2000-03-15",
+          genero: "Masculino",
+          anios_practica: 5,
+          nivel: "Avanzado",
+          peso_referencia_kg: 70,
+          academia: "Club Samoa",
+          pais: "México",
+        },
+        {
+          nombre_completo: "Kevin Daniel Santiago",
+          fecha_nacimiento: "1998-09-02",
+          genero: "Masculino",
+          anios_practica: 4,
+          nivel: "Avanzado",
+          peso_referencia_kg: 69.6,
+          academia: "Team Leones MMA",
+          pais: "México",
+        },
+        {
+          nombre_completo: "Valeria Hernández",
+          fecha_nacimiento: "2003-07-21",
+          genero: "Femenino",
+          anios_practica: 2.5,
+          nivel: "Intermedio",
+          peso_referencia_kg: 56,
+          academia: "Club Samoa",
+          pais: "México",
+        },
+        {
+          nombre_completo: "Sebastián Ramírez",
+          fecha_nacimiento: "2008-11-04",
+          genero: "Masculino",
+          anios_practica: 1.5,
+          nivel: "Principiante",
+          peso_referencia_kg: 60,
+          academia: "Club Samoa",
+          pais: "México",
+        },
+        {
+          nombre_completo: "Anna Castillo",
+          fecha_nacimiento: "2012-02-19",
+          genero: "Femenino",
+          anios_practica: 0.5,
+          nivel: "Novato",
+          peso_referencia_kg: 44,
+          academia: "Jiu Jitsu Academy",
+          pais: "México",
+        },
+        {
+          nombre_completo: "Diego Hernández",
+          fecha_nacimiento: "2015-06-10",
+          genero: "Masculino",
+          anios_practica: 0.8,
+          nivel: "Novato",
+          peso_referencia_kg: 31,
+          academia: "Club Samoa",
+          pais: "México",
+        },
+      ];
+
+      var out = document.getElementById("output");
+      var btn = document.getElementById("btn-seed");
+
+      function log(line, cls) {
+        var span = document.createElement("span");
+        if (cls) span.className = cls;
+        span.textContent = line + "\n";
+        out.appendChild(span);
+      }
+
+      btn.addEventListener("click", async function () {
+        btn.disabled = true;
+        out.innerHTML = "";
+        log("Creando " + ATLETAS_DE_MUESTRA.length + " atletas de muestra...", "info");
+        var ok = 0, err = 0;
+        for (var i = 0; i < ATLETAS_DE_MUESTRA.length; i += 1) {
+          var data = ATLETAS_DE_MUESTRA[i];
+          try {
+            var res = await api.post("atletas.create", data);
+            log("✓ " + res.atleta.id + " — " + res.atleta.nombre_completo, "ok");
+            ok += 1;
+          } catch (e) {
+            log("✗ " + data.nombre_completo + " — " + (e && e.message), "err");
+            err += 1;
+          }
+        }
+        log("\nTotal: " + ok + " creados, " + err + " errores.", err === 0 ? "ok" : "err");
+        log("\nAhora abre ../atletas.html para ver el listado.", "info");
+        btn.disabled = false;
+      });
+    </script>
+  </body>
+</html>

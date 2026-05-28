@@ -21,26 +21,48 @@
         </button>
       </div>
 
-      <div class="placeholder">
-        <span class="placeholder-tag">Coming soon · Tarea 06–07</span>
-        <h2>Catálogo de atletas</h2>
-        <p>
-          Aquí vas a ver el listado de todos los atletas registrados, con
-          filtros por género, división de edad calculada, nivel y academia.
-          Vas a poder crear, editar y archivar atletas, y luego inscribirlos a
-          eventos.
-        </p>
-        <ul class="placeholder-list">
-          <li>Tarea 05 — Endpoints backend de atletas (CRUD).</li>
-          <li>Tarea 06 — UI listado con filtros y búsqueda.</li>
-          <li>Tarea 07 — Formulario crear/editar/archivar.</li>
-          <li>Tarea 25 (post-MVP) — Importación masiva desde CSV.</li>
-        </ul>
+      <div class="toolbar">
+        <div class="toolbar-search">
+          <input
+            type="search"
+            id="filter-search"
+            placeholder="Buscar por nombre o academia..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="toolbar-filters">
+          <div class="btn-group" role="group" aria-label="Filtro de género">
+            <button class="btn btn-sm is-active" data-filter="genero" data-value="" type="button">Todos</button>
+            <button class="btn btn-sm" data-filter="genero" data-value="Masculino" type="button">Masculino</button>
+            <button class="btn btn-sm" data-filter="genero" data-value="Femenino" type="button">Femenino</button>
+          </div>
+
+          <label class="select-wrap">
+            <span class="select-label">Nivel</span>
+            <select id="filter-nivel">
+              <option value="">Todos</option>
+              <option value="Novato">Novato</option>
+              <option value="Principiante">Principiante</option>
+              <option value="Intermedio">Intermedio</option>
+              <option value="Avanzado">Avanzado</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="toolbar-count" id="atletas-count" aria-live="polite"></div>
+      </div>
+
+      <div id="atletas-list" class="atletas-list">
+        <div class="loading-message">Cargando atletas...</div>
       </div>
     </main>
 
     <script src="../registration-config.js"></script>
+    <script src="./js/reglamento.js"></script>
     <script src="./js/api.js"></script>
+    <script src="./js/atletas-listado.js"></script>
     <script src="./js/shell.js"></script>
   </body>
 </html>
