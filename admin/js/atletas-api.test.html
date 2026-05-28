@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tests — Atletas API</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #111;
+        color: #f7f2f1;
+        padding: 24px;
+        max-width: 960px;
+      }
+      h1 {
+        margin: 0 0 12px;
+        font-size: 22px;
+      }
+      .subtitle {
+        margin: 0 0 24px;
+        color: #b8aea8;
+      }
+      .summary {
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin: 0 0 18px;
+        font-weight: bold;
+      }
+      .summary.pass {
+        background: #1e3a1e;
+        color: #b8e8b8;
+      }
+      .summary.fail {
+        background: #4a1414;
+        color: #f4b9b9;
+      }
+      .summary.running {
+        background: #2a2a2a;
+        color: #b8aea8;
+      }
+      ul.cases {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ul.cases li {
+        padding: 8px 12px;
+        border-bottom: 1px solid #2a2a2a;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 13px;
+        line-height: 1.5;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      ul.cases li.pass::before {
+        content: "✓";
+        color: #6ad06a;
+        font-weight: bold;
+      }
+      ul.cases li.fail::before {
+        content: "✗";
+        color: #ff7777;
+        font-weight: bold;
+      }
+      .case-name {
+        flex: 1;
+      }
+      .case-detail {
+        color: #b8aea8;
+        font-size: 12px;
+        margin-left: 24px;
+        white-space: pre-wrap;
+        max-width: 700px;
+        overflow-x: auto;
+      }
+      .endpoint {
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 11px;
+        color: #8a807a;
+        margin: 4px 0 20px;
+        word-break: break-all;
+      }
+      footer {
+        margin-top: 32px;
+        color: #8a807a;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      footer code {
+        background: #1c1614;
+        padding: 1px 6px;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tests — Atletas API (CRUD E2E)</h1>
+    <p class="subtitle">
+      Suite end-to-end que crea, lista, obtiene, actualiza y archiva un atleta de
+      prueba contra el backend real. Cada corrida deja un atleta archivado en la
+      Sheet (no se elimina, queda con Activo=FALSE).
+    </p>
+    <div class="endpoint" id="endpoint"></div>
+
+    <div id="summary" class="summary running">Corriendo…</div>
+    <ul id="results" class="cases"></ul>
+
+    <footer>
+      <strong>Antes de correr:</strong> asegúrate de que actualizaste el código de
+      <code>Eventos.gs</code> en Apps Script y redeployaste (Deploy → Manage
+      deployments → Edit → Version: New version → Deploy). El endpoint debe ser
+      versión <code>0.2.0</code>. Para verificar, abre
+      <code>?action=ping</code> en el navegador.
+    </footer>
+
+    <script src="../../registration-config.js"></script>
+    <script src="./api.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        document.getElementById("endpoint").textContent =
+          "Endpoint: " + (window.CLUB_SAMOA_EVENTOS_ENDPOINT || "(sin definir)");
+
+        var results = [];
+        var ul = document.getElementById("results");
+
+        function record(name, pass, detail) {
+          results.push({ name: name, pass: pass, detail: detail || "" });
+          render();
+        }
+
+        function render() {
+          ul.innerHTML = "";
+          var pass = 0;
+          var fail = 0;
+          results.forEach(function (r) {
+            var li = document.createElement("li");
+            li.className = r.pass ? "pass" : "fail";
+            var name = document.createElement("span");
+            name.className = "case-name";
+            name.textContent = r.name;
+            li.appendChild(name);
+            if (r.detail) {
+              var d = document.createElement("div");
+              d.className = "case-detail";
+              d.textContent = r.detail;
+              li.appendChild(d);
+            }
+            ul.appendChild(li);
+            if (r.pass) pass += 1;
+            else fail += 1;
+          });
+          var summary = document.getElementById("summary");
+          summary.textContent =
+            (fail === 0 ? "✅ " : "❌ ") +
+            pass +
+            " pasaron, " +
+            fail +
+            " fallaron (total " +
+            (pass + fail) +
+            ").";
+          summary.className = "summary " + (fail === 0 ? "pass" : "fail");
+        }
+
+        // Genera un nombre único por corrida para no chocar con datos reales.
+        function unique(prefix) {
+          return prefix + " " + new Date().toISOString().slice(11, 19).replace(/:/g, "");
+        }
+
+        async function runTests() {
+          var nombre = unique("TEST Atleta");
+          var createdId = null;
+
+          // 0. Ping y verificación de versión
+          try {
+            var ping = await api.get("ping");
+            var ok =
+              ping &&
+              ping.ok === true &&
+              ping.version &&
+              ping.version >= "0.2.0";
+            record(
+              "Backend versión >= 0.2.0",
+              ok,
+              "version=" + (ping && ping.version),
+            );
+            if (!ok) {
+              record(
+                "(saltando resto)",
+                false,
+                "Actualiza el código de Eventos.gs en Apps Script y redeploya como nueva versión.",
+              );
+              return;
+            }
+          } catch (e) {
+            record("Backend responde a ping", false, String(e));
+            return;
+          }
+
+          // 1. CREATE válido
+          try {
+            var res = await api.post("atletas.create", {
+              nombre_completo: nombre,
+              fecha_nacimiento: "2000-03-15",
+              genero: "Masculino",
+              anios_practica: 5,
+              nivel: "Avanzado",
+              peso_referencia_kg: 70,
+              academia: "Club Samoa",
+              pais: "México",
+            });
+            var pass1 =
+              res &&
+              res.ok === true &&
+              res.atleta &&
+              res.atleta.id &&
+              /^atl_\d+$/.test(res.atleta.id) &&
+              res.atleta.activo === true &&
+              res.atleta.nombre_completo === nombre &&
+              res.atleta.genero === "Masculino" &&
+              res.atleta.nivel === "Avanzado" &&
+              res.atleta.peso_referencia_kg === 70;
+            record(
+              "create: atleta con datos válidos",
+              pass1,
+              JSON.stringify(res && res.atleta),
+            );
+            createdId = res && res.atleta && res.atleta.id;
+          } catch (e) {
+            record("create: atleta con datos válidos", false, String(e));
+            return;
+          }
+
+          if (!createdId) return;
+
+          // 2. CREATE con campo faltante → ApiError
+          try {
+            await api.post("atletas.create", { nombre_completo: "Incompleto" });
+            record("create sin campos requeridos → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "create sin campos requeridos → ApiError",
+              e instanceof api.ApiError,
+              String(e && e.message),
+            );
+          }
+
+          // 3. CREATE con género inválido → ApiError
+          try {
+            await api.post("atletas.create", {
+              nombre_completo: "GeneroInvalido",
+              fecha_nacimiento: "2000-01-01",
+              genero: "Otro",
+              anios_practica: 2,
+              nivel: "Novato",
+              peso_referencia_kg: 70,
+            });
+            record("create con género inválido → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "create con género inválido → ApiError",
+              e instanceof api.ApiError &&
+                /genero/i.test(e.message || ""),
+              String(e && e.message),
+            );
+          }
+
+          // 4. CREATE con nivel inválido → ApiError
+          try {
+            await api.post("atletas.create", {
+              nombre_completo: "NivelMalo",
+              fecha_nacimiento: "2000-01-01",
+              genero: "Masculino",
+              anios_practica: 2,
+              nivel: "Maestro",
+              peso_referencia_kg: 70,
+            });
+            record("create con nivel inválido → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "create con nivel inválido → ApiError",
+              e instanceof api.ApiError && /nivel/i.test(e.message || ""),
+              String(e && e.message),
+            );
+          }
+
+          // 5. CREATE con peso 0 → ApiError
+          try {
+            await api.post("atletas.create", {
+              nombre_completo: "PesoZero",
+              fecha_nacimiento: "2000-01-01",
+              genero: "Masculino",
+              anios_practica: 2,
+              nivel: "Novato",
+              peso_referencia_kg: 0,
+            });
+            record("create con peso 0 → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "create con peso 0 → ApiError",
+              e instanceof api.ApiError,
+              String(e && e.message),
+            );
+          }
+
+          // 6. CREATE con fecha futura → ApiError
+          try {
+            await api.post("atletas.create", {
+              nombre_completo: "FechaFutura",
+              fecha_nacimiento: "2099-01-01",
+              genero: "Masculino",
+              anios_practica: 2,
+              nivel: "Novato",
+              peso_referencia_kg: 70,
+            });
+            record("create con fecha futura → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "create con fecha futura → ApiError",
+              e instanceof api.ApiError,
+              String(e && e.message),
+            );
+          }
+
+          // 7. GET por ID
+          try {
+            var got = await api.get("atletas.get", { id: createdId });
+            var pass7 =
+              got &&
+              got.ok === true &&
+              got.atleta &&
+              got.atleta.id === createdId &&
+              got.atleta.nombre_completo === nombre;
+            record(
+              "get: atleta por id",
+              pass7,
+              JSON.stringify(got && got.atleta),
+            );
+          } catch (e) {
+            record("get: atleta por id", false, String(e));
+          }
+
+          // 8. GET con id inexistente → ApiError
+          try {
+            await api.get("atletas.get", { id: "atl_999999" });
+            record("get con id inexistente → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "get con id inexistente → ApiError",
+              e instanceof api.ApiError,
+              String(e && e.message),
+            );
+          }
+
+          // 9. LIST incluye al recién creado
+          try {
+            var list = await api.get("atletas.list");
+            var found = (list.atletas || []).find(function (a) {
+              return a.id === createdId;
+            });
+            record(
+              "list: incluye al atleta creado",
+              !!found,
+              found ? "✓ encontrado" : "no encontrado en list",
+            );
+          } catch (e) {
+            record("list: incluye al atleta creado", false, String(e));
+          }
+
+          // 10. UPDATE: cambiar peso y academia
+          try {
+            var upd = await api.post("atletas.update", {
+              id: createdId,
+              peso_referencia_kg: 72.5,
+              academia: "Academia Editada",
+            });
+            var pass10 =
+              upd &&
+              upd.ok === true &&
+              upd.atleta &&
+              upd.atleta.peso_referencia_kg === 72.5 &&
+              upd.atleta.academia === "Academia Editada" &&
+              upd.atleta.id === createdId &&
+              upd.atleta.nombre_completo === nombre; // no se cambió
+            record(
+              "update: peso y academia se actualizan, resto preservado",
+              pass10,
+              JSON.stringify(upd && upd.atleta),
+            );
+          } catch (e) {
+            record(
+              "update: peso y academia se actualizan",
+              false,
+              String(e),
+            );
+          }
+
+          // 11. UPDATE con campo inválido → ApiError, sin cambios
+          try {
+            await api.post("atletas.update", {
+              id: createdId,
+              genero: "Otro",
+            });
+            record("update con género inválido → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "update con género inválido → ApiError",
+              e instanceof api.ApiError,
+              String(e && e.message),
+            );
+          }
+
+          // 12. ARCHIVE
+          try {
+            var arch = await api.post("atletas.archive", { id: createdId });
+            var pass12 = arch && arch.ok === true && arch.activo === false;
+            record("archive: activo=false", pass12, JSON.stringify(arch));
+          } catch (e) {
+            record("archive: activo=false", false, String(e));
+          }
+
+          // 13. LIST por defecto NO incluye archivados
+          try {
+            var list2 = await api.get("atletas.list");
+            var stillThere = (list2.atletas || []).find(function (a) {
+              return a.id === createdId;
+            });
+            record(
+              "list (default) excluye archivados",
+              !stillThere,
+              stillThere ? "todavía aparece" : "✓ filtrado",
+            );
+          } catch (e) {
+            record("list (default) excluye archivados", false, String(e));
+          }
+
+          // 14. LIST con include_archived=true SÍ los muestra
+          try {
+            var list3 = await api.get("atletas.list", { include_archived: "true" });
+            var stillThere = (list3.atletas || []).find(function (a) {
+              return a.id === createdId;
+            });
+            record(
+              "list include_archived=true muestra archivados",
+              !!stillThere,
+              stillThere ? "✓ aparece" : "no aparece",
+            );
+          } catch (e) {
+            record(
+              "list include_archived=true muestra archivados",
+              false,
+              String(e),
+            );
+          }
+
+          // 15. ARCHIVE con id inexistente → ApiError
+          try {
+            await api.post("atletas.archive", { id: "atl_999999" });
+            record("archive con id inexistente → ApiError", false, "no lanzó");
+          } catch (e) {
+            record(
+              "archive con id inexistente → ApiError",
+              e instanceof api.ApiError,
+              String(e && e.message),
+            );
+          }
+        }
+
+        runTests().catch(function (e) {
+          console.error("Suite catástrofe", e);
+          record("Suite catástrofe", false, String(e));
+        });
+      })();
+    </script>
+  </body>
+</html>
