@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bracket · Club Samoa</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="../images/logo-black.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles-admin.css" />
+  </head>
+  <body class="bracket-page">
+    <header class="bracket-page-header" id="bracket-header">
+      <div class="bracket-page-brand">
+        <img src="../images/logo-white.png" alt="Club Samoa" />
+        <div>
+          <strong id="header-categoria">Cargando bracket…</strong>
+          <span id="header-meta"></span>
+        </div>
+      </div>
+      <div class="bracket-page-actions">
+        <a class="btn btn-ghost btn-sm" href="javascript:history.back()">← Volver</a>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh">⟳ Refrescar</button>
+        <button class="btn btn-primary btn-sm" id="btn-projection">📽 Modo proyección</button>
+      </div>
+    </header>
+
+    <main class="bracket-page-main">
+      <div id="bracket-svg-host" class="bracket-svg-host">
+        <div class="loading-message">Cargando bracket...</div>
+      </div>
+      <div id="bracket-detail-tip" class="bracket-page-tip">
+        Click en una pelea para abrir el scoreboard.
+      </div>
+    </main>
+
+    <script src="../registration-config.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/bracket-svg.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        var params = new URLSearchParams(location.search);
+        var id = params.get("id");
+        var bracket = null;
+        var lastSvg = null;
+
+        var els = {
+          host: document.getElementById("bracket-svg-host"),
+          headerCat: document.getElementById("header-categoria"),
+          headerMeta: document.getElementById("header-meta"),
+          tip: document.getElementById("bracket-detail-tip"),
+        };
+
+        if (!id) {
+          els.host.innerHTML =
+            '<div class="error-state">' +
+            "<h3>Falta el parámetro id</h3>" +
+            "<p>Esta página requiere <code>?id=brk_XXX</code> en la URL.</p>" +
+            "</div>";
+          els.headerCat.textContent = "Bracket no encontrado";
+          return;
+        }
+
+        document.getElementById("btn-refresh").addEventListener("click", load);
+        document.getElementById("btn-projection").addEventListener("click", toggleProjection);
+
+        // Click en pelea del SVG → scoreboard
+        els.host.addEventListener("click", function (e) {
+          var m = e.target.closest(".bracket-svg-match[data-pelea-id]");
+          if (!m) return;
+          var pid = m.dataset.peleaId;
+          if (pid) window.location.href = "./scoreboard.html?pelea_id=" + encodeURIComponent(pid);
+        });
+
+        // ESC sale de modo proyección
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && document.body.classList.contains("projection-mode")) {
+            exitProjection();
+          }
+        });
+        // Auto exit de projection cuando el browser sale de fullscreen
+        document.addEventListener("fullscreenchange", function () {
+          if (!document.fullscreenElement) {
+            document.body.classList.remove("projection-mode");
+          }
+        });
+
+        load();
+
+        async function load() {
+          els.host.innerHTML = '<div class="loading-message">Cargando bracket...</div>';
+          try {
+            var res = await window.api.get("brackets.get", { id: id });
+            bracket = res.bracket;
+            render();
+          } catch (err) {
+            els.host.innerHTML =
+              '<div class="error-state">' +
+              "<h3>No pudimos cargar el bracket</h3>" +
+              "<p>" + escapeHtml(err && err.message ? err.message : String(err)) + "</p>" +
+              "</div>";
+            els.headerCat.textContent = "Error";
+          }
+        }
+
+        function render() {
+          if (!bracket) return;
+          els.headerCat.textContent = bracket.categoria || bracket.id;
+
+          var totalPeleas = bracket.peleas ? bracket.peleas.length : 0;
+          var decididas = bracket.peleas ? bracket.peleas.filter(function (p) { return p.ganador_id; }).length : 0;
+          var pct = totalPeleas > 0 ? Math.round((decididas / totalPeleas) * 100) : 0;
+          els.headerMeta.textContent =
+            (bracket.num_atletas || 0) + " atletas · " +
+            decididas + " / " + totalPeleas + " peleas (" + pct + "%) · " +
+            (bracket.estatus || "");
+
+          document.title = (bracket.categoria || "Bracket") + " · Club Samoa";
+
+          els.host.innerHTML = "";
+          var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          els.host.appendChild(svg);
+          lastSvg = svg;
+          window.BracketSVG.render(svg, bracket);
+        }
+
+        function toggleProjection() {
+          if (document.body.classList.contains("projection-mode")) {
+            exitProjection();
+          } else {
+            enterProjection();
+          }
+        }
+
+        function enterProjection() {
+          document.body.classList.add("projection-mode");
+          if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen().catch(function () {});
+          }
+        }
+
+        function exitProjection() {
+          document.body.classList.remove("projection-mode");
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(function () {});
+          }
+        }
+
+        function escapeHtml(v) {
+          return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+      })();
+    </script>
+  </body>
+</html>
