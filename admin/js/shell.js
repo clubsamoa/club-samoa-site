@@ -24,61 +24,9 @@
     { key: "atletas", label: "Atletas", icon: "👥", href: "./atletas.html" },
   ];
 
-  var TOOLS_ITEMS = [
-    {
-      key: "tools-reglamento",
-      label: "Tests · reglamento",
-      icon: "·",
-      href: "./js/reglamento.test.html",
-    },
-    {
-      key: "tools-api",
-      label: "Tests · api",
-      icon: "·",
-      href: "./js/api.test.html",
-    },
-    {
-      key: "tools-atletas-api",
-      label: "Tests · atletas API",
-      icon: "·",
-      href: "./js/atletas-api.test.html",
-    },
-    {
-      key: "tools-atletas-seed",
-      label: "Seed · atletas demo",
-      icon: "+",
-      href: "./js/atletas-seed.html",
-    },
-    {
-      key: "tools-eventos-api",
-      label: "Tests · eventos API",
-      icon: "·",
-      href: "./js/eventos-api.test.html",
-    },
-    {
-      key: "tools-inscripciones-api",
-      label: "Tests · inscripciones API",
-      icon: "·",
-      href: "./js/inscripciones-api.test.html",
-    },
-    {
-      key: "tools-bracket-builder",
-      label: "Tests · bracket builder",
-      icon: "·",
-      href: "./js/bracket-builder.test.html",
-    },
-    {
-      key: "tools-brackets-api",
-      label: "Tests · brackets API",
-      icon: "·",
-      href: "./js/brackets-api.test.html",
-    },
-    {
-      key: "tools-bracket-svg",
-      label: "Tests · bracket SVG",
-      icon: "·",
-      href: "./js/bracket-svg.test.html",
-    },
+  var MESES_CORTOS = [
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
   ];
 
   function init() {
@@ -196,10 +144,92 @@
     aside.appendChild(buildSidebarSection("Principal"));
     aside.appendChild(buildNav(NAV_ITEMS, activeKey));
 
-    aside.appendChild(buildSidebarSection("Dev / Tests"));
-    aside.appendChild(buildNav(TOOLS_ITEMS, activeKey));
+    aside.appendChild(buildSidebarSection("Eventos activos"));
+    var eventosNav = document.createElement("nav");
+    eventosNav.className = "admin-nav admin-nav-eventos";
+    eventosNav.innerHTML =
+      '<div class="admin-nav-empty">Cargando…</div>';
+    aside.appendChild(eventosNav);
+
+    // Carga async — no bloquea el render del sidebar
+    loadEventosActivos_(eventosNav);
 
     return aside;
+  }
+
+  async function loadEventosActivos_(navEl) {
+    if (!window.api || typeof window.api.get !== "function") {
+      navEl.innerHTML =
+        '<div class="admin-nav-empty">API no disponible</div>';
+      return;
+    }
+    try {
+      var res = await window.api.get("eventos.list");
+      var eventos = (res && res.eventos) || [];
+      var activos = eventos.filter(function (ev) {
+        return ev.estatus === "activo";
+      });
+      activos.sort(function (a, b) {
+        var fa = String(a.fecha || "");
+        var fb = String(b.fecha || "");
+        return fa < fb ? -1 : fa > fb ? 1 : 0;
+      });
+
+      if (activos.length === 0) {
+        navEl.innerHTML =
+          '<div class="admin-nav-empty">Sin eventos activos</div>';
+        return;
+      }
+
+      // Si estamos en evento.html?id=X, resaltar el activo
+      var currentId = null;
+      try {
+        if (/\/evento\.html$/.test(location.pathname)) {
+          currentId = new URLSearchParams(location.search).get("id");
+        }
+      } catch (e) { /* ignore */ }
+
+      navEl.innerHTML = "";
+      activos.forEach(function (ev) {
+        var a = document.createElement("a");
+        a.href = "./evento.html?id=" + encodeURIComponent(ev.id);
+        a.className = "admin-nav-evento";
+        if (ev.id === currentId) a.classList.add("is-active");
+
+        var info = document.createElement("div");
+        info.className = "admin-nav-evento-info";
+
+        var nombre = document.createElement("strong");
+        nombre.className = "admin-nav-evento-name";
+        nombre.textContent = ev.nombre || ev.id;
+        info.appendChild(nombre);
+
+        if (ev.fecha) {
+          var fecha = document.createElement("span");
+          fecha.className = "admin-nav-evento-fecha";
+          fecha.textContent = formatFechaCorta_(ev.fecha);
+          info.appendChild(fecha);
+        }
+
+        a.appendChild(info);
+        navEl.appendChild(a);
+      });
+    } catch (err) {
+      console.warn("[shell] no se pudo cargar eventos activos:", err);
+      navEl.innerHTML =
+        '<div class="admin-nav-empty">No se pudieron cargar</div>';
+    }
+  }
+
+  function formatFechaCorta_(iso) {
+    var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return String(iso);
+    var d = new Date(
+      parseInt(m[1], 10),
+      parseInt(m[2], 10) - 1,
+      parseInt(m[3], 10),
+    );
+    return d.getDate() + " " + MESES_CORTOS[d.getMonth()];
   }
 
   function buildSidebarSection(label) {
