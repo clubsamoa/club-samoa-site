@@ -26,7 +26,7 @@
     eventos: [],
     loading: false,
     error: null,
-    filterEstatus: "",
+    filterEstatus: "activo",
   };
 
   var els = {

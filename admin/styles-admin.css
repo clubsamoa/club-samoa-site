@@ -785,7 +785,7 @@ textarea {
   display: none;
   align-items: flex-start;
   justify-content: center;
-  z-index: 200;
+  z-index: 9999;
   overflow-y: auto;
   padding: 40px 16px;
   backdrop-filter: blur(2px);
@@ -930,6 +930,26 @@ textarea {
 
 .form-field input[type="date"] {
   color-scheme: dark;
+}
+
+.form-field textarea {
+  width: 100%;
+  padding: 9px 11px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+  background: var(--panel-2);
 }
 
 .form-hint {
@@ -2497,6 +2517,397 @@ textarea {
   margin-bottom: 18px;
 }
 
+/* T21 — Save indicator */
+
+.save-indicator {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  color: #a8d9a8;
+  opacity: 0;
+  transition: opacity 0.3s;
+  padding: 0 8px;
+}
+
+.save-indicator.is-visible {
+  opacity: 1;
+}
+
+/* T21 — Restore banner */
+
+.restore-banner {
+  background: rgba(220, 165, 70, 0.12);
+  border: 1px solid rgba(220, 165, 70, 0.45);
+  color: #f0c89a;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.restore-banner-text {
+  flex: 1;
+  min-width: 240px;
+}
+
+.restore-banner-text strong {
+  color: var(--text);
+}
+
+.restore-banner-text small {
+  display: inline-block;
+  margin-top: 2px;
+  color: rgba(247, 242, 241, 0.6);
+}
+
+.restore-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* T21 — Winner banner estilo Smoothcomp */
+
+.winner-banner {
+  background: linear-gradient(135deg, #d9b545, #b89530);
+  color: #1a1411;
+  padding: 16px 24px;
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 22px;
+  box-shadow: 0 10px 28px rgba(217, 181, 69, 0.25);
+}
+
+.winner-banner-label {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.winner-banner-name {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 36px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+
+.winner-banner-academia {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.winner-banner-tie {
+  background: linear-gradient(135deg, #6a6a6a, #4a4a4a);
+  color: #f7f2f1;
+}
+
+/* En fullscreen: el banner del ganador domina */
+.scoreboard-page.is-fullscreen .winner-banner {
+  margin-bottom: 1.5vh;
+  padding: 1.5vh 3vw;
+}
+
+.scoreboard-page.is-fullscreen .winner-banner-label {
+  font-size: clamp(14px, 2vh, 20px);
+}
+
+.scoreboard-page.is-fullscreen .winner-banner-name {
+  font-size: clamp(28px, 5.5vh, 60px);
+}
+
+.scoreboard-page.is-fullscreen .winner-banner-academia {
+  font-size: clamp(12px, 1.6vh, 16px);
+}
+
+/* Vista admin cuando hay ganador: layout limpio */
+
+.finalizado-detalle {
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  margin: 0 0 14px;
+}
+
+.finalizado-notas {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 0 auto 22px;
+  max-width: 640px;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+  text-align: center;
+}
+
+.finalizado-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+/* Valor crudo del tiempo, en letra ultrapequeña al fondo */
+.finalizado-raw {
+  text-align: center;
+  color: rgba(247, 242, 241, 0.18);
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  margin-top: 40px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.public-winner-raw {
+  margin-top: 3vh;
+  font-size: clamp(8px, 1vh, 10px);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  opacity: 0.25;
+  letter-spacing: 0.02em;
+}
+
+/* =============================================================
+   T21+ — Vista PÚBLICA (scoreboard-public.html)
+   ============================================================= */
+
+.scoreboard-public-page {
+  margin: 0;
+  background: #000;
+  color: #f7f2f1;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  font-family: "Inter", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.public-fs-toggle {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 100;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.public-fs-toggle:hover {
+  opacity: 1;
+}
+
+.public-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.public-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.public-header img {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.public-categoria {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(14px, 2.2vh, 22px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Atletas en filas horizontales (estilo Smoothcomp) */
+
+.public-atleta {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 4vw;
+  min-height: 0;
+}
+
+.public-atleta-top {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.public-atleta-side {
+  flex-shrink: 0;
+}
+
+.public-side-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(48px, 7vh, 78px);
+  height: clamp(48px, 7vh, 78px);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #142840, #5a8ed0);
+  color: #fff;
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(20px, 3.2vh, 32px);
+}
+
+.public-side-tag-b {
+  background: linear-gradient(135deg, #2a1414, #7f0000);
+}
+
+.public-atleta-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.public-atleta-name {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(28px, 7vh, 80px);
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #fff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.public-atleta-academia {
+  font-size: clamp(14px, 2.2vh, 22px);
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+/* Centro: round info + timer */
+
+.public-center {
+  flex: 1.4 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1vh 2vw;
+  min-height: 0;
+}
+
+.public-round {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(16px, 3vh, 32px);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 1vh;
+}
+
+.public-timer {
+  font-family: "Teko", "Oswald", sans-serif;
+  font-weight: 700;
+  font-size: min(40vh, 30vw);
+  line-height: 0.85;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.public-timer.is-rest {
+  color: #f0c89a;
+}
+
+.public-timer.is-low {
+  color: #ff7777;
+  animation: cs-public-pulse 0.8s infinite;
+}
+
+@keyframes cs-public-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* Banner de ganador en pública */
+
+.public-winner-banner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #d9b545 0%, #b89530 100%);
+  color: #1a1411;
+  text-align: center;
+  padding: 4vh 4vw;
+}
+
+.public-winner-banner.is-tie {
+  background: linear-gradient(135deg, #4a4a4a, #2a2a2a);
+  color: #f7f2f1;
+}
+
+.public-winner-method {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(20px, 4vh, 44px);
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  margin-bottom: 2vh;
+}
+
+.public-winner-name {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(40px, 12vh, 140px);
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.public-winner-academia {
+  font-size: clamp(16px, 2.8vh, 28px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-top: 1vh;
+}
+
+.public-winner-detail {
+  margin-top: 2.5vh;
+  font-size: clamp(14px, 2.4vh, 24px);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  opacity: 0.7;
+}
+
+@media (orientation: portrait) {
+  .public-atleta {
+    padding: 0 6vw;
+  }
+  .public-timer {
+    font-size: min(28vh, 60vw);
+  }
+}
+
 /* Atletas en versus */
 
 .scoreboard-atletas {
@@ -2741,20 +3152,47 @@ textarea {
 }
 
 .btn-finalize {
-  background: rgba(86, 160, 86, 0.32);
-  border-color: rgba(86, 160, 86, 0.6);
-  color: #c8f0c8;
+  background: rgba(86, 160, 86, 0.18);
+  border-color: rgba(86, 160, 86, 0.4);
+  color: #a8d9a8;
   font-family: "Anton", "Oswald", sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 12px 24px;
+  padding: 9px 18px;
 }
 
 .btn-finalize:hover {
-  background: rgba(86, 160, 86, 0.5);
+  background: rgba(86, 160, 86, 0.32);
   color: #fff;
-  border-color: #6ad06a;
+  border-color: rgba(86, 160, 86, 0.65);
+}
+
+.btn-finalize.is-prominent {
+  background: rgba(86, 160, 86, 0.42);
+  border-color: rgba(86, 160, 86, 0.75);
+  color: #fff;
+  animation: cs-finalize-pulse 1.4s infinite;
+}
+
+@keyframes cs-finalize-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(86, 160, 86, 0.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(86, 160, 86, 0); }
+}
+
+/* Radio del ganador con nombres largos */
+.ganador-radio {
+  width: 100%;
+}
+
+.ganador-radio .radio-pill {
+  flex: 1;
+}
+
+.ganador-radio .radio-pill span {
+  display: block;
+  text-align: center;
+  border-right: 1px solid var(--line);
 }
 
 .btn-control {

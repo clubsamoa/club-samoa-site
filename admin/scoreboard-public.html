@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Scoreboard público · Club Samoa</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="../images/logo-black.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@600;700&family=Teko:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles-admin.css" />
+  </head>
+  <body class="scoreboard-public-page">
+    <button class="public-fs-toggle" id="btn-public-fs" title="Pantalla completa (Esc para salir)">⛶</button>
+
+    <main class="public-main" id="public-main">
+      <div class="loading-message" style="text-align:center; padding:80px 20px; color:#888;">
+        Esperando datos de la pelea...
+      </div>
+    </main>
+
+    <script src="../registration-config.js"></script>
+    <script src="./js/api.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        var STORAGE_KEY_PREFIX = "cs_scoreboard_";
+        var params = new URLSearchParams(location.search);
+        var peleaId = params.get("pelea_id");
+        var pelea = null;
+        var liveState = null;
+        var lastRenderKey = "";
+        var lastBackendFetch = 0;
+
+        document.getElementById("btn-public-fs").addEventListener("click", toggleFullscreen);
+        document.addEventListener("keydown", function (e) {
+          if (e.code === "KeyF") toggleFullscreen();
+        });
+
+        if (!peleaId) {
+          showError_("Falta ?pelea_id=pel_XXX en la URL.");
+          return;
+        }
+
+        // Cargar la pelea del backend (atletas, categoría, finalizada o no)
+        loadFromBackend_();
+
+        // 1) BroadcastChannel — comunicación instantánea entre tabs/ventanas
+        try {
+          if (typeof BroadcastChannel !== "undefined") {
+            var bc = new BroadcastChannel("cs_scoreboard_" + peleaId);
+            bc.onmessage = function (e) {
+              if (!e.data) return;
+              // Mensaje especial: pelea finalizada → re-fetch del backend
+              if (e.data.type === "finalized") {
+                liveState = null;
+                loadFromBackend_();
+                return;
+              }
+              liveState = e.data;
+              render_();
+            };
+          }
+        } catch (e) { /* ignore */ }
+
+        // 2) Escuchar storage events (fallback si BroadcastChannel no soportado)
+        window.addEventListener("storage", function (e) {
+          if (e.key === STORAGE_KEY_PREFIX + peleaId) {
+            try {
+              liveState = e.newValue ? JSON.parse(e.newValue) : null;
+              render_();
+            } catch (err) {
+              console.warn("[public] parse storage:", err);
+            }
+          }
+        });
+
+        // 3) Polling cada 250ms como salvavidas final
+        setInterval(pollLocal_, 250);
+
+        // Re-fetch del backend cada 30s (por si la pelea fue finalizada / reabierta
+        // desde otro device, o por refresco de datos del atleta).
+        setInterval(function () {
+          if (Date.now() - lastBackendFetch > 25000) loadFromBackend_();
+        }, 5000);
+
+        function pollLocal_() {
+          try {
+            var raw = localStorage.getItem(STORAGE_KEY_PREFIX + peleaId);
+            if (!raw) {
+              if (liveState !== null) {
+                liveState = null;
+                render_();
+              }
+              return;
+            }
+            var parsed = JSON.parse(raw);
+            // Comparar por timestamp para evitar re-renders innecesarios
+            if (!liveState || liveState.savedAt !== parsed.savedAt) {
+              liveState = parsed;
+              render_();
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        async function loadFromBackend_() {
+          lastBackendFetch = Date.now();
+          try {
+            var res = await window.api.get("peleas.get", { id: peleaId });
+            pelea = res.pelea;
+            render_();
+          } catch (err) {
+            showError_(err && err.message ? err.message : String(err));
+          }
+        }
+
+        function render_() {
+          if (!pelea) return;
+          var alreadyDecided = !!pelea.ganador_id ||
+            /^(Empate|No Contest)/i.test(pelea.metodo_finalizacion || "");
+
+          // Cache: solo re-render si algo realmente cambió
+          var key = renderKey_(alreadyDecided);
+          if (key === lastRenderKey) return;
+          lastRenderKey = key;
+
+          var main = document.getElementById("public-main");
+
+          if (alreadyDecided) {
+            main.innerHTML = renderFinalized_();
+          } else {
+            main.innerHTML = renderLive_();
+          }
+        }
+
+        function renderKey_(alreadyDecided) {
+          var parts = [
+            alreadyDecided ? "F" : "L",
+            pelea.id,
+            pelea.ganador_id || "",
+            pelea.metodo_finalizacion || "",
+            liveState ? liveState.savedAt : "",
+            liveState ? liveState.secondsRemaining : "",
+            liveState ? liveState.currentRound : "",
+            liveState ? (liveState.isResting ? "R" : "F") : "",
+          ];
+          return parts.join("|");
+        }
+
+        function renderLive_() {
+          var a1 = pelea.atleta1 || {};
+          var a2 = pelea.atleta2 || {};
+          var categoria = (pelea.bracket && pelea.bracket.categoria) || "";
+
+          var roundInfo = "";
+          var timerStr = "00:00";
+
+          if (liveState && liveState.secondsRemaining != null) {
+            timerStr = formatTime_(liveState.secondsRemaining);
+            var totalRounds = guessTotalRounds_();
+            if (liveState.isResting) {
+              roundInfo = "Descanso · próximo Round " + (liveState.currentRound + 1) +
+                (totalRounds ? " / " + totalRounds : "");
+            } else {
+              roundInfo = "Round " + (liveState.currentRound || 1) +
+                (totalRounds ? " / " + totalRounds : "");
+            }
+          } else {
+            // Sin snapshot todavía: mostrar categoría y "Esperando inicio"
+            roundInfo = "Esperando inicio";
+          }
+
+          var timerClass = "public-timer";
+          if (liveState && liveState.isResting) timerClass += " is-rest";
+          if (liveState && liveState.secondsRemaining > 0 && liveState.secondsRemaining <= 10) {
+            timerClass += " is-low";
+          }
+
+          return (
+            '<header class="public-header">' +
+            '<img src="../images/logo-white.png" alt="Club Samoa" />' +
+            '<span class="public-categoria">' + escapeHtml_(categoria) + "</span>" +
+            "</header>" +
+            '<section class="public-atleta public-atleta-top">' +
+            '<div class="public-atleta-side"><span class="public-side-tag">A</span></div>' +
+            '<div class="public-atleta-info">' +
+            '<div class="public-atleta-name">' + escapeHtml_(a1.nombre_completo || pelea.atleta1_id || "Por definir") + "</div>" +
+            '<div class="public-atleta-academia">' + escapeHtml_(a1.academia || a1.pais || "") + "</div>" +
+            "</div>" +
+            "</section>" +
+            '<section class="public-center">' +
+            '<div class="public-round">' + escapeHtml_(roundInfo) + "</div>" +
+            '<div class="' + timerClass + '">' + timerStr + "</div>" +
+            "</section>" +
+            '<section class="public-atleta public-atleta-bottom">' +
+            '<div class="public-atleta-side"><span class="public-side-tag public-side-tag-b">B</span></div>' +
+            '<div class="public-atleta-info">' +
+            '<div class="public-atleta-name">' + escapeHtml_(a2.nombre_completo || pelea.atleta2_id || "Por definir") + "</div>" +
+            '<div class="public-atleta-academia">' + escapeHtml_(a2.academia || a2.pais || "") + "</div>" +
+            "</div>" +
+            "</section>"
+          );
+        }
+
+        function renderFinalized_() {
+          var categoria = (pelea.bracket && pelea.bracket.categoria) || "";
+          var metodo = (pelea.metodo_finalizacion || "FINALIZADO").toUpperCase();
+          var ganador = pelea.ganador;
+          var isTie = !ganador;
+          var bannerClass = isTie ? "public-winner-banner is-tie" : "public-winner-banner";
+
+          var tiempoFmt = formatTiempoFinalizacion_(pelea.tiempo_finalizacion);
+          var tiempo = tiempoFmt.clean ? "Tiempo: " + tiempoFmt.clean : "";
+          var round = pelea.round_finalizacion ? "Round " + pelea.round_finalizacion : "";
+          var detalle = [round, tiempo].filter(Boolean).join("  ·  ");
+          var rawTiempo = tiempoFmt.raw
+            ? '<div class="public-winner-raw">' + escapeHtml_(tiempoFmt.raw) + "</div>"
+            : "";
+
+          return (
+            '<header class="public-header">' +
+            '<img src="../images/logo-white.png" alt="Club Samoa" />' +
+            '<span class="public-categoria">' + escapeHtml_(categoria) + "</span>" +
+            "</header>" +
+            '<section class="' + bannerClass + '">' +
+            '<div class="public-winner-method">' +
+            (isTie ? "" : "GANADOR POR ") + escapeHtml_(metodo) +
+            "</div>" +
+            (isTie
+              ? ""
+              : '<div class="public-winner-name">' + escapeHtml_(ganador.nombre_completo || "") + "</div>" +
+                (ganador.academia ? '<div class="public-winner-academia">' + escapeHtml_(ganador.academia) + "</div>" : "")
+            ) +
+            (detalle ? '<div class="public-winner-detail">' + escapeHtml_(detalle) + "</div>" : "") +
+            rawTiempo +
+            "</section>"
+          );
+        }
+
+        function formatTiempoFinalizacion_(raw) {
+          if (!raw) return { clean: "", raw: "" };
+          var s = String(raw).trim();
+          var m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+          if (m) {
+            var clean = m[1].length === 1 ? "0" + m[1] + ":" + m[2] : m[1] + ":" + m[2];
+            return { clean: clean, raw: clean === s ? "" : s };
+          }
+          return { clean: s, raw: "" };
+        }
+
+        function showError_(msg) {
+          var main = document.getElementById("public-main");
+          main.innerHTML =
+            '<div class="error-state" style="margin:80px auto; max-width:540px;">' +
+            "<h3>No pudimos cargar la pelea</h3>" +
+            "<p>" + escapeHtml_(msg) + "</p>" +
+            "</div>";
+        }
+
+        function guessTotalRounds_() {
+          // El snapshot no incluye tiempoConfig.rounds explícito.
+          // Lo inferimos: si scoring.rounds.length existe, usar eso.
+          if (liveState && liveState.scoring && Array.isArray(liveState.scoring.rounds)) {
+            return liveState.scoring.rounds.length;
+          }
+          return null;
+        }
+
+        function toggleFullscreen() {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(function () {});
+          } else {
+            document.documentElement.requestFullscreen().catch(function () {});
+          }
+        }
+
+        function formatTime_(seconds) {
+          var s = Math.max(0, Math.floor(Number(seconds) || 0));
+          var m = Math.floor(s / 60);
+          var ss = s % 60;
+          return (m < 10 ? "0" + m : m) + ":" + (ss < 10 ? "0" + ss : ss);
+        }
+
+        function escapeHtml_(v) {
+          return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+      })();
+    </script>
+  </body>
+</html>
