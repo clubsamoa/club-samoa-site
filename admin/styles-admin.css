@@ -3836,3 +3836,47 @@ textarea {
   }
 }
 
+/* ============================================================
+ * Vista pública — estado de espera (modo evento sin pelea activa)
+ * ============================================================ */
+
+.public-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  height: 100vh;
+  text-align: center;
+  padding: 40px;
+}
+
+.public-waiting-logo {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  opacity: 0.92;
+}
+
+.public-waiting-title {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(36px, 6vw, 64px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f7f2f1;
+}
+
+.public-waiting-subtitle {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: clamp(20px, 3vw, 32px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(247, 242, 241, 0.78);
+}
+
+.public-waiting-hint {
+  font-size: clamp(13px, 1.4vw, 17px);
+  color: rgba(247, 242, 241, 0.42);
+  letter-spacing: 0.02em;
+}
+
