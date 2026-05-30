@@ -5,10 +5,7 @@
     <title>Eventos · Admin · Club Samoa</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/png" href="../images/logo-black.png" />
-    <link
-      rel="preconnect"
-      href="https://fonts.googleapis.com"
-    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@600;700&display=swap"
@@ -19,31 +16,32 @@
   <body data-section="eventos" data-title="Eventos" data-subtitle="Brackets MMA — gestión de eventos del club">
     <main class="admin-main">
       <div data-slot="main-actions">
-        <button class="btn btn-primary" type="button" disabled title="Disponible en la Tarea 09">
+        <button class="btn btn-primary" type="button" id="btn-nuevo-evento">
           + Nuevo evento
         </button>
       </div>
 
-      <div class="placeholder">
-        <span class="placeholder-tag">Coming soon · Tarea 09</span>
-        <h2>Listado de eventos</h2>
-        <p>
-          Aquí vas a ver todos los eventos del Club Samoa, filtrar por estatus
-          (borrador, activo, finalizado) y entrar a cada uno para gestionar
-          inscripciones, pesaje, brackets y scoreboard.
-        </p>
-        <ul class="placeholder-list">
-          <li>Tarea 08 — Endpoints backend de eventos.</li>
-          <li>Tarea 09 — Listado y creación de eventos.</li>
-          <li>Tarea 10–12 — Inscripciones y pesaje.</li>
-          <li>Tarea 13–17 — Generación, edición y visualización de brackets.</li>
-          <li>Tarea 18–21 — Scoreboard en vivo.</li>
-        </ul>
+      <div class="toolbar">
+        <div class="toolbar-filters">
+          <div class="btn-group" role="group" aria-label="Filtro de estatus">
+            <button class="btn btn-sm is-active" data-filter="estatus" data-value="" type="button">Todos</button>
+            <button class="btn btn-sm" data-filter="estatus" data-value="borrador" type="button">Borrador</button>
+            <button class="btn btn-sm" data-filter="estatus" data-value="activo" type="button">Activo</button>
+            <button class="btn btn-sm" data-filter="estatus" data-value="finalizado" type="button">Finalizado</button>
+          </div>
+        </div>
+        <div class="toolbar-count" id="eventos-count" aria-live="polite"></div>
+      </div>
+
+      <div id="eventos-list" class="eventos-list">
+        <div class="loading-message">Cargando eventos...</div>
       </div>
     </main>
 
     <script src="../registration-config.js"></script>
     <script src="./js/api.js"></script>
+    <script src="./js/eventos-form.js"></script>
+    <script src="./js/eventos-listado.js"></script>
     <script src="./js/shell.js"></script>
   </body>
 </html>

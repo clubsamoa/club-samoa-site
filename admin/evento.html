@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Evento · Admin · Club Samoa</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/png" href="../images/logo-black.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles-admin.css" />
+  </head>
+  <body data-section="eventos" data-title="Evento" data-subtitle="Cargando…">
+    <main class="admin-main">
+      <div data-slot="main-actions">
+        <a class="btn btn-ghost" href="./eventos.html">← Todos los eventos</a>
+      </div>
+
+      <div id="evento-detalle">
+        <div class="loading-message">Cargando evento...</div>
+      </div>
+    </main>
+
+    <script src="../registration-config.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/shell.js"></script>
+    <script>
+      (function () {
+        "use strict";
+
+        var params = new URLSearchParams(location.search);
+        var id = params.get("id");
+        var container = document.getElementById("evento-detalle");
+
+        if (!id) {
+          container.innerHTML =
+            '<div class="placeholder">' +
+            '<span class="placeholder-tag">Error</span>' +
+            "<h2>Falta el parámetro id</h2>" +
+            '<p>Esta página requiere <code>?id=evt_XXX</code> en la URL.</p>' +
+            "</div>";
+          return;
+        }
+
+        // Esperamos a que el shell se monte antes de hacer fetch
+        // (api.js depende de window.CLUB_SAMOA_EVENTOS_ENDPOINT que sí está cargado).
+        load(id);
+
+        async function load(id) {
+          try {
+            var res = await window.api.get("eventos.get", { id: id });
+            render(res.evento);
+          } catch (err) {
+            container.innerHTML =
+              '<div class="error-state">' +
+              "<h3>No pudimos cargar el evento</h3>" +
+              "<p>" + escapeHtml(err && err.message ? err.message : String(err)) + "</p>" +
+              "</div>";
+          }
+        }
+
+        function render(ev) {
+          // Actualiza el header de la página
+          var h1 = document.querySelector(".admin-main-header h1");
+          var sub = document.querySelector(".admin-main-header .admin-subtitle");
+          if (h1) h1.textContent = ev.nombre || ev.id;
+          if (sub) sub.textContent = formatFecha(ev.fecha) + " · " + (ev.sede || "—");
+
+          container.innerHTML =
+            '<div class="evento-tabs">' +
+            '<button class="evento-tab is-active" disabled>Detalle</button>' +
+            '<button class="evento-tab" disabled title="Tarea 11">Inscripciones</button>' +
+            '<button class="evento-tab" disabled title="Tarea 12">Pesaje</button>' +
+            '<button class="evento-tab" disabled title="Tarea 14">Brackets</button>' +
+            "</div>" +
+            '<div class="card" style="margin-top: 16px;">' +
+            '<h3 style="margin: 0 0 16px; font-family: Anton, Oswald, sans-serif; letter-spacing: 0.04em; text-transform: uppercase;">Detalle del evento</h3>' +
+            '<dl class="evento-detalle-dl">' +
+            row("ID", ev.id) +
+            row("Nombre", ev.nombre) +
+            row("Fecha", formatFecha(ev.fecha)) +
+            row("Sede", ev.sede) +
+            row("Estatus", '<span class="estatus-pill estatus-' + escapeAttr(ev.estatus) + '">' + escapeHtml(ev.estatus) + "</span>") +
+            row("Creado", ev.creado_en ? new Date(ev.creado_en).toLocaleString("es-MX") : "—") +
+            "</dl>" +
+            "</div>" +
+            '<div class="placeholder" style="margin-top: 16px;">' +
+            '<span class="placeholder-tag">Próximamente</span>' +
+            "<h2>Inscripciones, pesaje y brackets</h2>" +
+            "<p>Las tabs de Inscripciones (T10–T11), Pesaje (T12) y Brackets (T13–T17) se construyen en las siguientes tareas. Por ahora puedes ver el detalle del evento y volver al listado.</p>" +
+            "</div>";
+        }
+
+        function row(label, value) {
+          if (value === null || value === undefined || value === "") value = "—";
+          return (
+            '<div class="evento-detalle-row">' +
+            "<dt>" + escapeHtml(label) + "</dt>" +
+            "<dd>" + (typeof value === "string" && value.indexOf("<") === 0 ? value : escapeHtml(String(value))) + "</dd>" +
+            "</div>"
+          );
+        }
+
+        function formatFecha(iso) {
+          if (!iso) return "—";
+          var m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (!m) return String(iso);
+          var d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+          try {
+            return d.toLocaleDateString("es-MX", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            });
+          } catch (e) {
+            return String(iso);
+          }
+        }
+
+        function escapeHtml(v) {
+          return String(v == null ? "" : v)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+        function escapeAttr(v) { return escapeHtml(v); }
+      })();
+    </script>
+  </body>
+</html>
