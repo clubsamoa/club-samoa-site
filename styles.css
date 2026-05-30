@@ -1674,3 +1674,51 @@ textarea {
     justify-content: center;
   }
 }
+
+/* ============================================================
+ * Site footer (T24 — link discreto al admin)
+ * ============================================================ */
+
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 32px;
+  margin-top: 48px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: rgba(247, 242, 241, 0.42);
+  flex-wrap: wrap;
+}
+
+.site-footer-copy {
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.site-footer-admin {
+  color: rgba(247, 242, 241, 0.32);
+  text-decoration: none;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.site-footer-admin:hover,
+.site-footer-admin:focus-visible {
+  color: var(--surface);
+  background: rgba(247, 242, 241, 0.06);
+  outline: none;
+}
+
+@media (max-width: 600px) {
+  .site-footer {
+    padding: 20px 18px;
+    justify-content: center;
+    text-align: center;
+  }
+}
