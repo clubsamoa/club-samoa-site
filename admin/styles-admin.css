@@ -2101,3 +2101,127 @@ textarea {
   }
 }
 
+/* =============================================================
+   Bracket SVG (T16) — render estilo Smoothcomp
+   ============================================================= */
+
+.bracket-svg {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* Header de ronda arriba de cada columna */
+.bracket-svg-round-label {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  fill: var(--muted);
+  font-weight: 700;
+}
+
+/* Caja del match */
+.bracket-svg-match-bg {
+  fill: var(--bg-soft);
+  stroke: var(--line);
+  stroke-width: 1;
+  transition: stroke 0.15s;
+}
+
+.bracket-svg-match:hover .bracket-svg-match-bg {
+  stroke: var(--line-strong);
+}
+
+/* Número de la pelea (#1, #2...) */
+.bracket-svg-match-num {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--muted-2);
+}
+
+/* Línea divisoria entre atleta1 y atleta2 */
+.bracket-svg-match-divider {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+/* Conectores entre rondas */
+.bracket-svg-connector {
+  stroke: rgba(247, 242, 241, 0.22);
+  stroke-width: 1.5;
+}
+
+/* Slot del atleta */
+.bracket-svg-match-slot.is-loser {
+  opacity: 0.5;
+}
+
+.bracket-svg-match-slot.is-bye {
+  opacity: 0.55;
+}
+
+.bracket-svg-slot-winner-bg {
+  fill: rgba(86, 160, 86, 0.15);
+}
+
+/* Nombre del atleta */
+.bracket-svg-name {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.bracket-svg-match-slot.is-winner .bracket-svg-name {
+  fill: #b8e8b8;
+}
+
+/* Academia (línea pequeña debajo del nombre) */
+.bracket-svg-academia {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
+/* Bye */
+.bracket-svg-bye-label {
+  font-size: 11px;
+  font-style: italic;
+  fill: var(--muted-2);
+  letter-spacing: 0.08em;
+}
+
+/* TBD */
+.bracket-svg-tbd {
+  font-size: 14px;
+  fill: var(--muted-2);
+}
+
+/* Check ✓ del ganador */
+.bracket-svg-check {
+  font-size: 14px;
+  font-weight: 700;
+  fill: #6ad06a;
+}
+
+/* Cuando es interactivo */
+.bracket-svg-match[data-pelea-id]:hover {
+  cursor: pointer;
+}
+
+.bracket-svg-match[data-pelea-id]:hover .bracket-svg-match-bg {
+  fill: var(--panel-2);
+  stroke: var(--brand-deep);
+}
+
+/* Contenedor scrolleable para brackets grandes */
+.bracket-svg-host {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow: auto;
+}
+
+.bracket-svg-host svg {
+  display: block;
+  min-width: 100%;
+}
+

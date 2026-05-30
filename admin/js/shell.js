@@ -73,6 +73,12 @@
       icon: "·",
       href: "./js/brackets-api.test.html",
     },
+    {
+      key: "tools-bracket-svg",
+      label: "Tests · bracket SVG",
+      icon: "·",
+      href: "./js/bracket-svg.test.html",
+    },
   ];
 
   function init() {
