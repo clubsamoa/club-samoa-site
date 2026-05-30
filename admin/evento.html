@@ -23,7 +23,7 @@
         <button class="evento-tab is-active" data-tab="detalle" type="button" role="tab">Detalle</button>
         <button class="evento-tab" data-tab="inscripciones" type="button" role="tab">Inscripciones</button>
         <button class="evento-tab" data-tab="pesaje" type="button" role="tab">Pesaje</button>
-        <button class="evento-tab" data-tab="brackets" type="button" role="tab" disabled title="Disponible en T13–T17">Brackets</button>
+        <button class="evento-tab" data-tab="brackets" type="button" role="tab">Brackets</button>
       </div>
 
       <div class="evento-tab-panels">
@@ -37,11 +37,7 @@
           <!-- Renderizado por evento-pesaje.js al activarse -->
         </section>
         <section class="evento-tab-panel" data-panel="brackets" role="tabpanel" hidden>
-          <div class="placeholder">
-            <span class="placeholder-tag">Coming soon · Tarea 13–17</span>
-            <h2>Generación de brackets</h2>
-            <p>Cuando termines el pesaje, podrás generar los brackets de eliminación por categoría con un botón, visualizarlos estilo Smoothcomp y abrir el scoreboard por pelea.</p>
-          </div>
+          <!-- Renderizado por evento-brackets.js al activarse -->
         </section>
       </div>
     </main>
@@ -53,6 +49,8 @@
     <script src="./js/inscripciones-form.js"></script>
     <script src="./js/evento-inscripciones.js"></script>
     <script src="./js/evento-pesaje.js"></script>
+    <script src="./js/bracket-builder.js"></script>
+    <script src="./js/evento-brackets.js"></script>
     <script src="./js/evento.js"></script>
     <script src="./js/shell.js"></script>
   </body>

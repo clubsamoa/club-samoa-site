@@ -27,16 +27,21 @@
     search: null,
     nivelSelect: null,
     generoButtons: null,
-    btnRetry: null,
+    btnNuevo: null,
   };
 
-  document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    setTimeout(init, 0);
+  }
 
   function init() {
     cacheEls();
     if (!els.list) return;
 
     bindFilters();
+    bindActions();
     render();
     loadAtletas();
   }
@@ -47,6 +52,34 @@
     els.search = document.getElementById("filter-search");
     els.nivelSelect = document.getElementById("filter-nivel");
     els.generoButtons = document.querySelectorAll('[data-filter="genero"]');
+    els.btnNuevo = document.getElementById("btn-nuevo-atleta");
+  }
+
+  function bindActions() {
+    if (els.btnNuevo && window.AtletaForm) {
+      els.btnNuevo.addEventListener("click", function () {
+        window.AtletaForm.open({ onSaved: loadAtletas });
+      });
+    }
+    // Delegación de eventos: el botón Editar en cada fila.
+    if (els.list) {
+      els.list.addEventListener("click", function (e) {
+        var btn = e.target.closest('[data-action="editar"]');
+        if (!btn) return;
+        var tr = btn.closest("tr");
+        var id = tr && tr.dataset.id;
+        if (!id || !window.AtletaForm) return;
+        var atleta = state.atletas.find(function (a) {
+          return a.id === id;
+        });
+        if (!atleta) return;
+        window.AtletaForm.open({
+          atleta: atleta,
+          onSaved: loadAtletas,
+          onArchived: loadAtletas,
+        });
+      });
+    }
   }
 
   function bindFilters() {
@@ -204,7 +237,7 @@
       "<td>" + nivelBadge(a.nivel) + "</td>" +
       "<td class='num'>" + (a.peso_referencia_kg != null ? a.peso_referencia_kg + " kg" : "—") + "</td>" +
       "<td>" + escapeHtml(a.academia || "") + "</td>" +
-      "<td class='actions'><button class='btn btn-ghost btn-sm' disabled title='Editar (Tarea 07)'>Editar</button></td>";
+      "<td class='actions'><button class='btn btn-ghost btn-sm' data-action='editar' title='Editar atleta'>Editar</button></td>";
 
     return tr;
   }
