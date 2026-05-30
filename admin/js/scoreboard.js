@@ -29,6 +29,8 @@
     audioCtx: null,
     error: null,
     loading: true,
+    // T19 — scoring
+    scoring: null,       // { rounds: [{a1, a2, a1_adv, a2_adv, a1_faltas, a2_faltas}, ...] }
   };
 
   // ------------------------------------------------------------
@@ -158,6 +160,96 @@
     state.secondsRemaining = state.tiempoConfig.segundosPorRound;
     state.isResting = false;
     state.isRunning = false;
+
+    // Init scoring por round
+    var nRounds = state.tiempoConfig.rounds;
+    state.scoring = { rounds: [] };
+    for (var i = 0; i < nRounds; i += 1) {
+      state.scoring.rounds.push({
+        a1: null,
+        a2: null,
+        a1_adv: 0,
+        a2_adv: 0,
+        a1_faltas: 0,
+        a2_faltas: 0,
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * T19 — Scoring (10-point must system)
+   * ------------------------------------------------------------ */
+
+  function setRoundScore(side, points) {
+    if (!state.scoring) return;
+    var roundIdx = state.currentRound - 1;
+    var round = state.scoring.rounds[roundIdx];
+    if (!round) return;
+    var other = side === "a1" ? "a2" : "a1";
+    round[side] = points;
+    // Regla 10-point must: el ganador del round tiene 10. Si pones
+    // < 10 a uno, el otro debe ser 10. Si pones 10, el otro queda
+    // como el operador lo dejó (puede ser null si no decidió).
+    if (points < 10) {
+      round[other] = 10;
+    }
+    renderScoring_();
+  }
+
+  function clearRoundScore() {
+    if (!state.scoring) return;
+    var roundIdx = state.currentRound - 1;
+    var round = state.scoring.rounds[roundIdx];
+    if (!round) return;
+    round.a1 = null;
+    round.a2 = null;
+    renderScoring_();
+  }
+
+  function addAdv(side) {
+    if (!state.scoring) return;
+    var round = state.scoring.rounds[state.currentRound - 1];
+    if (!round) return;
+    round[side + "_adv"] += 1;
+    renderScoring_();
+  }
+  function removeAdv(side) {
+    if (!state.scoring) return;
+    var round = state.scoring.rounds[state.currentRound - 1];
+    if (!round) return;
+    round[side + "_adv"] = Math.max(0, round[side + "_adv"] - 1);
+    renderScoring_();
+  }
+  function addFalta(side) {
+    if (!state.scoring) return;
+    var round = state.scoring.rounds[state.currentRound - 1];
+    if (!round) return;
+    round[side + "_faltas"] += 1;
+    renderScoring_();
+  }
+  function removeFalta(side) {
+    if (!state.scoring) return;
+    var round = state.scoring.rounds[state.currentRound - 1];
+    if (!round) return;
+    round[side + "_faltas"] = Math.max(0, round[side + "_faltas"] - 1);
+    renderScoring_();
+  }
+
+  function totalScore(side) {
+    if (!state.scoring) return 0;
+    return state.scoring.rounds.reduce(function (acc, r) {
+      return acc + (typeof r[side] === "number" ? r[side] : 0);
+    }, 0);
+  }
+
+  function totalAdv(side) {
+    if (!state.scoring) return 0;
+    return state.scoring.rounds.reduce(function (acc, r) { return acc + r[side + "_adv"]; }, 0);
+  }
+
+  function totalFaltas(side) {
+    if (!state.scoring) return 0;
+    return state.scoring.rounds.reduce(function (acc, r) { return acc + r[side + "_faltas"]; }, 0);
   }
 
   // ------------------------------------------------------------
@@ -185,31 +277,49 @@
 
   function tick() {
     state.secondsRemaining -= 1;
-    if (state.secondsRemaining <= 0) {
-      state.secondsRemaining = 0;
-      pause();
-      playBell();
-      if (state.isResting) {
-        // El descanso terminó → preparar próximo round
-        state.isResting = false;
-        state.currentRound += 1;
-        if (state.currentRound > state.tiempoConfig.rounds) {
-          // Se acabó la pelea
-          state.currentRound = state.tiempoConfig.rounds;
-          state.secondsRemaining = 0;
+    if (state.secondsRemaining > 0) {
+      renderTimer();
+      return;
+    }
+
+    // Tiempo agotado para el segmento actual
+    state.secondsRemaining = 0;
+    playBell();
+
+    if (state.isResting) {
+      // El descanso terminó → arrancar próximo round automáticamente.
+      state.isResting = false;
+      state.currentRound += 1;
+      if (state.currentRound > state.tiempoConfig.rounds) {
+        // Caso defensivo, no debería pasar
+        state.currentRound = state.tiempoConfig.rounds;
+        pause();
+        renderScoring_();
+      } else {
+        state.secondsRemaining = state.tiempoConfig.segundosPorRound;
+        // Seguimos corriendo
+      }
+    } else {
+      // Acabó un round
+      if (state.currentRound < state.tiempoConfig.rounds) {
+        // Hay más rounds. Si hay descanso configurado, arrancarlo
+        // automáticamente. Si no, brincar al próximo round directo.
+        if (state.tiempoConfig.segundosDescanso > 0) {
+          state.isResting = true;
+          state.secondsRemaining = state.tiempoConfig.segundosDescanso;
+          // Seguimos corriendo
         } else {
+          state.currentRound += 1;
           state.secondsRemaining = state.tiempoConfig.segundosPorRound;
         }
       } else {
-        // Acabó el round actual
-        if (state.currentRound < state.tiempoConfig.rounds && state.tiempoConfig.segundosDescanso > 0) {
-          // Iniciar periodo de descanso
-          state.isResting = true;
-          state.secondsRemaining = state.tiempoConfig.segundosDescanso;
-        }
+        // Fin del último round → pelea terminada, parar timer
+        pause();
+        renderScoring_();
       }
     }
     renderTimer();
+    renderControls();
   }
 
   function resetRound() {
@@ -342,9 +452,9 @@
           "</div>"
         : "") +
       '<div class="scoreboard-atletas">' +
-      renderAtletaCard_(p.atleta1, p.atleta1_id, "left", p.ganador_id === p.atleta1_id) +
+      renderAtletaCard_(p.atleta1, p.atleta1_id, "left", "a1", p.ganador_id === p.atleta1_id) +
       '<div class="scoreboard-vs">VS</div>' +
-      renderAtletaCard_(p.atleta2, p.atleta2_id, "right", p.ganador_id === p.atleta2_id) +
+      renderAtletaCard_(p.atleta2, p.atleta2_id, "right", "a2", p.ganador_id === p.atleta2_id) +
       "</div>" +
       '<div class="scoreboard-round-info" id="round-info">' +
       renderRoundInfo_() +
@@ -353,16 +463,21 @@
       '<div class="scoreboard-controls" id="scoreboard-controls">' +
       renderControlsHTML_() +
       "</div>" +
+      '<div class="scoreboard-scoring" id="scoring-panel">' +
+      renderScoringPanelHTML_() +
+      "</div>" +
       '<div class="scoreboard-coming-soon">' +
       "Atajos: Space = play/pause · F = pantalla completa · ← −10s · → +10s" +
-      "<br>T19: puntuación, advertencias, faltas · T20: finalizar pelea · T21: autosave" +
+      "<br>T20: finalizar pelea · T21: autosave + persistencia" +
       "</div>";
 
     bindControls_();
+    bindScoring_();
     renderTimer();
+    renderScoring_();
   }
 
-  function renderAtletaCard_(atleta, atletaId, side, isWinner) {
+  function renderAtletaCard_(atleta, atletaId, side, sideKey, isWinner) {
     var nombre, academia, initials;
     if (!atleta && !atletaId) {
       nombre = "Por definir";
@@ -378,24 +493,171 @@
       initials = initialsOf_(nombre);
     }
     return (
-      '<div class="scoreboard-atleta scoreboard-atleta-' + side + (isWinner ? " is-winner" : "") + '">' +
+      '<div class="scoreboard-atleta scoreboard-atleta-' + side + (isWinner ? " is-winner" : "") + '" data-side="' + sideKey + '">' +
+      '<div class="scoreboard-atleta-top">' +
       '<div class="scoreboard-atleta-avatar">' + escapeHtml_(initials) + "</div>" +
+      '<div class="scoreboard-atleta-textwrap">' +
       '<div class="scoreboard-atleta-name">' + escapeHtml_(nombre) + "</div>" +
       '<div class="scoreboard-atleta-academia">' + escapeHtml_(academia) + "</div>" +
+      "</div>" +
+      '<div class="scoreboard-atleta-total" data-total-for="' + sideKey + '">0</div>' +
+      "</div>" +
+      '<div class="scoreboard-atleta-counters">' +
+      '<span class="counter-adv" data-counter="adv" data-side-for="' + sideKey + '">Adv: 0</span>' +
+      '<span class="counter-falta" data-counter="falta" data-side-for="' + sideKey + '">Faltas: 0</span>' +
+      "</div>" +
       (isWinner ? '<div class="scoreboard-atleta-winner-tag">✓ Ganador</div>' : "") +
       "</div>"
     );
   }
 
+  /* ------------------------------------------------------------
+   * T19 — Panel de scoring (UI)
+   * ------------------------------------------------------------ */
+
+  function renderScoringPanelHTML_() {
+    var p = state.pelea || {};
+    var a1Name = (p.atleta1 && p.atleta1.nombre_completo) || "Atleta 1";
+    var a2Name = (p.atleta2 && p.atleta2.nombre_completo) || "Atleta 2";
+    return (
+      '<div class="scoring-row">' +
+      '<div class="scoring-atleta-name scoring-atleta-name-a1">' + escapeHtml_(a1Name) + "</div>" +
+      '<div class="scoring-buttons" data-side="a1">' +
+      scoringButtonsHTML_("a1") +
+      "</div>" +
+      "</div>" +
+      '<div class="scoring-row">' +
+      '<div class="scoring-atleta-name scoring-atleta-name-a2">' + escapeHtml_(a2Name) + "</div>" +
+      '<div class="scoring-buttons" data-side="a2">' +
+      scoringButtonsHTML_("a2") +
+      "</div>" +
+      "</div>" +
+      '<div class="scoring-extras-row">' +
+      '<div class="scoring-extras" data-side="a1">' + extrasButtonsHTML_("a1") + "</div>" +
+      '<button class="btn btn-sm btn-clear-round" data-action="clear-round" title="Limpiar puntajes del round actual">Limpiar round</button>' +
+      '<div class="scoring-extras" data-side="a2">' + extrasButtonsHTML_("a2") + "</div>" +
+      "</div>" +
+      '<div class="scoring-summary" id="scoring-summary"></div>'
+    );
+  }
+
+  function scoringButtonsHTML_(side) {
+    // 10-point must — en práctica casi nunca llegamos a 10-7, dejamos 10/9/8.
+    return [10, 9, 8].map(function (pts) {
+      return '<button class="btn btn-score" data-action="score" data-side="' + side + '" data-points="' + pts + '">' + pts + "</button>";
+    }).join("");
+  }
+
+  function extrasButtonsHTML_(side) {
+    return (
+      '<button class="btn btn-sm btn-extra" data-action="adv-add" data-side="' + side + '">+ Adv</button>' +
+      '<button class="btn btn-sm btn-extra btn-extra-minus" data-action="adv-rem" data-side="' + side + '" title="Quitar advertencia">−</button>' +
+      '<button class="btn btn-sm btn-extra" data-action="falta-add" data-side="' + side + '">+ Falta</button>' +
+      '<button class="btn btn-sm btn-extra btn-extra-minus" data-action="falta-rem" data-side="' + side + '" title="Quitar falta">−</button>'
+    );
+  }
+
+  function bindScoring_() {
+    var panel = document.getElementById("scoring-panel");
+    if (!panel) return;
+    panel.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      var action = btn.dataset.action;
+      var side = btn.dataset.side;
+      if (action === "score") {
+        setRoundScore(side, Number(btn.dataset.points));
+      } else if (action === "adv-add") {
+        addAdv(side);
+      } else if (action === "adv-rem") {
+        removeAdv(side);
+      } else if (action === "falta-add") {
+        addFalta(side);
+      } else if (action === "falta-rem") {
+        removeFalta(side);
+      } else if (action === "clear-round") {
+        clearRoundScore();
+      }
+    });
+  }
+
+  function renderScoring_() {
+    if (!state.scoring || !state.tiempoConfig) return;
+
+    // Highlight de botones de score para el round actual
+    var roundIdx = state.currentRound - 1;
+    var round = state.scoring.rounds[roundIdx];
+
+    ["a1", "a2"].forEach(function (side) {
+      // Botones score: marcar el seleccionado
+      var btns = document.querySelectorAll('[data-action="score"][data-side="' + side + '"]');
+      btns.forEach(function (b) {
+        var sel = round && Number(b.dataset.points) === round[side];
+        b.classList.toggle("is-active", !!sel);
+      });
+
+      // Total
+      var totalEl = document.querySelector('[data-total-for="' + side + '"]');
+      if (totalEl) totalEl.textContent = String(totalScore(side));
+
+      // Contadores adv / falta
+      var advEl = document.querySelector('[data-counter="adv"][data-side-for="' + side + '"]');
+      var falEl = document.querySelector('[data-counter="falta"][data-side-for="' + side + '"]');
+      var advCount = totalAdv(side);
+      var falCount = totalFaltas(side);
+      if (advEl) advEl.textContent = "Adv: " + advCount;
+      if (falEl) {
+        falEl.textContent = "Faltas: " + falCount;
+        falEl.classList.toggle("is-warning", falCount === 2);
+        falEl.classList.toggle("is-critical", falCount >= 3);
+      }
+    });
+
+    // Resumen por round
+    var summary = document.getElementById("scoring-summary");
+    if (summary) {
+      var rows = state.scoring.rounds.map(function (r, idx) {
+        var isCurrent = idx + 1 === state.currentRound;
+        var a1Str = (r.a1 === null || r.a1 === undefined) ? "—" : r.a1;
+        var a2Str = (r.a2 === null || r.a2 === undefined) ? "—" : r.a2;
+        return (
+          '<div class="scoring-summary-row' + (isCurrent ? " is-current" : "") + '">' +
+          '<span class="ssr-label">R' + (idx + 1) + "</span>" +
+          '<span class="ssr-a1">' + a1Str + "</span>" +
+          '<span class="ssr-divider">—</span>' +
+          '<span class="ssr-a2">' + a2Str + "</span>" +
+          "</div>"
+        );
+      }).join("");
+      summary.innerHTML =
+        '<div class="scoring-summary-rounds">' + rows + "</div>" +
+        '<div class="scoring-summary-totals">' +
+        'Total: <strong>' + totalScore("a1") + " — " + totalScore("a2") + "</strong>" +
+        "</div>";
+    }
+  }
+
   function renderRoundInfo_() {
     var t = state.tiempoConfig;
     if (!t) return "";
+    var isFinDePelea = isFightOver_();
+    if (isFinDePelea) {
+      return '<span class="round-label is-finished">Pelea terminada</span>';
+    }
     if (state.isResting) {
       return '<span class="round-label is-rest">Descanso</span> ' +
         '<span class="round-counter">antes de Round ' + (state.currentRound + 1) + " / " + t.rounds + "</span>";
     }
     return '<span class="round-label">Round</span> ' +
       '<span class="round-counter">' + state.currentRound + " / " + t.rounds + "</span>";
+  }
+
+  function isFightOver_() {
+    var t = state.tiempoConfig;
+    if (!t) return false;
+    return !state.isResting &&
+      state.currentRound >= t.rounds &&
+      state.secondsRemaining <= 0;
   }
 
   function renderControlsHTML_() {
@@ -409,6 +671,7 @@
       '<div class="scoreboard-controls-row scoreboard-controls-adjust">' +
       '<button class="btn btn-control btn-adjust" id="btn-minus-10" title="Restar 10 segundos (Flecha ←)">−10 seg</button>' +
       '<button class="btn btn-control btn-adjust" id="btn-plus-10" title="Sumar 10 segundos (Flecha →)">+10 seg</button>' +
+      '<button class="btn btn-control btn-finalize" id="btn-finalize" hidden>✓ Finalizar pelea</button>' +
       "</div>"
     );
   }
@@ -420,28 +683,48 @@
     var bn = document.getElementById("btn-next");
     var bm10 = document.getElementById("btn-minus-10");
     var bp10 = document.getElementById("btn-plus-10");
+    var bf = document.getElementById("btn-finalize");
     if (bs) bs.addEventListener("click", start);
     if (bp) bp.addEventListener("click", pause);
     if (br) br.addEventListener("click", resetRound);
     if (bn) bn.addEventListener("click", nextRound);
     if (bm10) bm10.addEventListener("click", function () { addTime(-10); });
     if (bp10) bp10.addEventListener("click", function () { addTime(10); });
+    if (bf) bf.addEventListener("click", finalizePlaceholder_);
     renderControls();
+  }
+
+  function finalizePlaceholder_() {
+    alert(
+      "Finalización de pelea — disponible en Tarea 20.\n\n" +
+      "Por ahora, anota el resultado:\n\n" +
+      "Total: " + totalScore("a1") + " — " + totalScore("a2") + "\n" +
+      "Advertencias: " + totalAdv("a1") + " / " + totalAdv("a2") + "\n" +
+      "Faltas: " + totalFaltas("a1") + " / " + totalFaltas("a2"),
+    );
   }
 
   function renderControls() {
     var bs = document.getElementById("btn-start");
     var bp = document.getElementById("btn-pause");
     var bn = document.getElementById("btn-next");
+    var bf = document.getElementById("btn-finalize");
     if (!bs || !bp || !bn) return;
 
-    bs.disabled = state.isRunning || state.secondsRemaining <= 0;
+    var fightOver = isFightOver_();
+
+    // Start: no permitido si la pelea ya terminó o si está corriendo
+    bs.disabled = state.isRunning || fightOver;
     bp.disabled = !state.isRunning;
 
     var isLastRound = state.tiempoConfig &&
       state.currentRound >= state.tiempoConfig.rounds &&
       !state.isResting;
     bn.disabled = isLastRound;
+
+    if (bf) {
+      bf.hidden = !fightOver;
+    }
   }
 
   function renderTimer() {
