@@ -223,7 +223,7 @@
         function render_() {
           if (!pelea) return;
           var alreadyDecided = !!pelea.ganador_id ||
-            /^No Contest$/i.test(pelea.metodo_finalizacion || "");
+            /^(Empate|No Contest)$/i.test(pelea.metodo_finalizacion || "");
 
           // Cache: solo re-render si algo realmente cambió
           var key = renderKey_(alreadyDecided);

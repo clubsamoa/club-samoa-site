@@ -389,8 +389,12 @@
           Reglamento.METODOS_FINALIZACION.indexOf("No Contest") >= 0,
         );
         assertTrue(
-          "METODOS_FINALIZACION tiene 10 entradas (estilo Smoothcomp)",
-          Reglamento.METODOS_FINALIZACION.length === 10,
+          "METODOS_FINALIZACION contiene 'Empate'",
+          Reglamento.METODOS_FINALIZACION.indexOf("Empate") >= 0,
+        );
+        assertTrue(
+          "METODOS_FINALIZACION tiene 11 entradas (10 Smoothcomp + Empate)",
+          Reglamento.METODOS_FINALIZACION.length === 11,
         );
 
         // -------------------------------------------------------

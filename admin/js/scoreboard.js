@@ -1091,14 +1091,15 @@
     dialog.querySelector(".modal-close").addEventListener("click", closeFinalizeModal_);
     dialog.querySelector(".btn-cancel").addEventListener("click", closeFinalizeModal_);
 
-    // Cuando el método es "No Contest", auto-marcar Empate / No contest.
+    // Cuando el método es "Empate" o "No Contest", auto-marcar el radio
+    // "Empate / No contest" (no hay ganador individual).
     // Para "Descalificación", "Abandono", "No Pasó Pesaje", "No Pasó Examen Médico"
     // y "No Se Presentó" hay un ganador implícito (el otro atleta), así que
     // dejamos que el operador lo seleccione manualmente.
     var metodoSel = form.querySelector('[name="metodo"]');
     metodoSel.addEventListener("change", function () {
       var v = metodoSel.value || "";
-      if (/^No Contest$/i.test(v)) {
+      if (/^(Empate|No Contest)$/i.test(v)) {
         var empateRadio = form.querySelector('[name="ganador"][value="empate"]');
         if (empateRadio) empateRadio.checked = true;
       }
