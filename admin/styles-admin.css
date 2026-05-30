@@ -2225,3 +2225,195 @@ textarea {
   min-width: 100%;
 }
 
+/* =============================================================
+   Tab Brackets — modo LIVE (T17)
+   ============================================================= */
+
+.brackets-live-summary {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.brackets-live-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.bracket-live-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.bracket-live-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-soft);
+  flex-wrap: wrap;
+}
+
+.bracket-live-title {
+  margin: 0 0 4px;
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.bracket-live-meta {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.bracket-live-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.bracket-live-card .bracket-svg-host {
+  background: var(--panel);
+  border: 0;
+  border-radius: 0;
+  padding: 14px;
+}
+
+/* =============================================================
+   Página standalone de bracket (T17)
+   ============================================================= */
+
+.bracket-page {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.bracket-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bracket-page-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.bracket-page-brand img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.bracket-page-brand div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.bracket-page-brand strong {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.bracket-page-brand span {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.bracket-page-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bracket-page-main {
+  padding: 24px;
+}
+
+.bracket-page-main .bracket-svg-host {
+  margin: 0 auto;
+  max-width: 100%;
+}
+
+.bracket-page-tip {
+  text-align: center;
+  color: var(--muted-2);
+  font-size: 12px;
+  margin-top: 14px;
+  font-style: italic;
+}
+
+/* Modo proyección: oculta chrome, agranda SVG */
+
+.bracket-page.projection-mode {
+  background: #000;
+}
+
+.bracket-page.projection-mode .bracket-page-header,
+.bracket-page.projection-mode .bracket-page-tip {
+  display: none;
+}
+
+.bracket-page.projection-mode .bracket-page-main {
+  padding: 0;
+}
+
+.bracket-page.projection-mode .bracket-svg-host {
+  background: #000;
+  border: 0;
+  border-radius: 0;
+  padding: 24px;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bracket-page.projection-mode .bracket-svg-host svg {
+  max-height: calc(100vh - 48px);
+  width: auto;
+  height: auto;
+}
+
+/* Agranda el texto en proyección */
+.bracket-page.projection-mode .bracket-svg-name {
+  font-size: 14px;
+}
+.bracket-page.projection-mode .bracket-svg-academia {
+  font-size: 12px;
+}
+.bracket-page.projection-mode .bracket-svg-round-label {
+  font-size: 13px;
+}
+
