@@ -211,3 +211,8 @@ registrationForms.forEach((form) => {
       });
   });
 });
+
+// Footer — actualiza el año automáticamente
+document.querySelectorAll("[data-year]").forEach((el) => {
+  el.textContent = String(new Date().getFullYear());
+});
