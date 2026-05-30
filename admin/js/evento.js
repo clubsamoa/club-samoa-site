@@ -167,6 +167,12 @@
         evento: state.evento,
         panel: panel,
       });
+    } else if (name === "resumen" && window.EventoResumen) {
+      window.EventoResumen.init({
+        eventoId: state.eventoId,
+        evento: state.evento,
+        panel: panel,
+      });
     }
   }
 
