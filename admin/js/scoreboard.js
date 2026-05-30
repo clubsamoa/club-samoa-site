@@ -31,7 +31,111 @@
     loading: true,
     // T19 — scoring
     scoring: null,       // { rounds: [{a1, a2, a1_adv, a2_adv, a1_faltas, a2_faltas}, ...] }
+    // T21 — autosave
+    lastSavedAt: null,
   };
+
+  /* ============================================================
+   * T21 — Autosave a localStorage
+   * ============================================================ */
+
+  var STORAGE_KEY_PREFIX = "cs_scoreboard_";
+
+  function storageKey_() {
+    return state.peleaId ? STORAGE_KEY_PREFIX + state.peleaId : null;
+  }
+
+  var broadcastChannel_ = null;
+  function getBroadcastChannel_() {
+    if (!state.peleaId) return null;
+    if (broadcastChannel_) return broadcastChannel_;
+    if (typeof BroadcastChannel === "undefined") return null;
+    try {
+      broadcastChannel_ = new BroadcastChannel("cs_scoreboard_" + state.peleaId);
+    } catch (e) {
+      broadcastChannel_ = null;
+    }
+    return broadcastChannel_;
+  }
+
+  function saveState_() {
+    var key = storageKey_();
+    if (!key || !state.scoring || !state.tiempoConfig) return;
+    try {
+      var snapshot = {
+        peleaId: state.peleaId,
+        currentRound: state.currentRound,
+        secondsRemaining: state.secondsRemaining,
+        isResting: state.isResting,
+        isRunning: state.isRunning, // útil para la vista pública
+        scoring: state.scoring,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(key, JSON.stringify(snapshot));
+      state.lastSavedAt = snapshot.savedAt;
+      updateSaveIndicator_();
+
+      // Broadcast en tiempo real para la vista pública en otra ventana
+      var ch = getBroadcastChannel_();
+      if (ch) {
+        try { ch.postMessage(snapshot); } catch (e) { /* ignore */ }
+      }
+    } catch (e) {
+      console.warn("[scoreboard] saveState_ failed:", e);
+    }
+  }
+
+  function loadSavedState_() {
+    var key = storageKey_();
+    if (!key) return null;
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function clearSavedState_() {
+    var key = storageKey_();
+    if (!key) return;
+    try {
+      localStorage.removeItem(key);
+      state.lastSavedAt = null;
+    } catch (e) {}
+  }
+
+  function applySavedState_(snapshot) {
+    if (!snapshot) return;
+    state.currentRound = snapshot.currentRound || 1;
+    state.secondsRemaining = typeof snapshot.secondsRemaining === "number"
+      ? snapshot.secondsRemaining
+      : state.tiempoConfig.segundosPorRound;
+    state.isResting = !!snapshot.isResting;
+    if (snapshot.scoring && Array.isArray(snapshot.scoring.rounds)) {
+      // Merge defensivo: si el shape cambió, mantener defaults
+      state.scoring = snapshot.scoring;
+    }
+    state.lastSavedAt = snapshot.savedAt;
+    // Nunca restauramos como "running" — el operador inicia manualmente
+    state.isRunning = false;
+  }
+
+  function updateSaveIndicator_() {
+    var el = document.getElementById("save-indicator");
+    if (!el) return;
+    if (!state.lastSavedAt) {
+      el.textContent = "";
+      return;
+    }
+    el.textContent = "💾 Guardado";
+    el.classList.add("is-visible");
+    clearTimeout(updateSaveIndicator_._t);
+    updateSaveIndicator_._t = setTimeout(function () {
+      el.classList.remove("is-visible");
+    }, 1500);
+  }
 
   // ------------------------------------------------------------
   // Init
@@ -43,6 +147,15 @@
   document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("btn-refresh").addEventListener("click", load);
     document.getElementById("btn-fullscreen").addEventListener("click", toggleFullscreen);
+    var btnPublic = document.getElementById("btn-public");
+    if (btnPublic) {
+      btnPublic.addEventListener("click", function () {
+        if (!state.peleaId) return;
+        var url = "./scoreboard-public.html?pelea_id=" + encodeURIComponent(state.peleaId);
+        var w = window.open(url, "cs_public_view", "noopener=no,width=1280,height=720");
+        if (w) w.focus();
+      });
+    }
 
     document.addEventListener("fullscreenchange", function () {
       var on = !!document.fullscreenElement;
@@ -106,6 +219,7 @@
     );
     renderTimer();
     renderControls();
+    saveState_();
   }
 
   function isInputFocused_() {
@@ -129,13 +243,60 @@
       state.pelea = res.pelea;
       state.bracketCat = (state.pelea.bracket && state.pelea.bracket.categoria) || "";
       configureTimer();
-      state.loading = false;
-      render();
+
+      // T21 — buscar estado guardado en localStorage
+      var saved = loadSavedState_();
+      var peleaFinalized = !!state.pelea.ganador_id;
+      if (saved && !peleaFinalized) {
+        // Ofrecer restaurar via banner inline
+        state.loading = false;
+        render();
+        showRestoreBanner_(saved);
+      } else {
+        if (saved && peleaFinalized) clearSavedState_();
+        state.loading = false;
+        render();
+      }
     } catch (err) {
       state.loading = false;
       state.error = err && err.message ? err.message : String(err);
       renderError(state.error);
     }
+  }
+
+  function showRestoreBanner_(snapshot) {
+    var main = document.getElementById("scoreboard-main");
+    if (!main) return;
+    var minutes = Math.round((Date.now() - snapshot.savedAt) / 60000);
+    var ago = minutes < 1 ? "hace menos de un minuto" :
+              minutes === 1 ? "hace 1 minuto" :
+              "hace " + minutes + " minutos";
+
+    var banner = document.createElement("div");
+    banner.className = "restore-banner";
+    banner.innerHTML =
+      '<div class="restore-banner-text">' +
+      '<strong>Estado guardado encontrado</strong> · auto-guardado ' + ago + ".<br>" +
+      '<small>Round ' + (snapshot.currentRound || 1) +
+      (snapshot.isResting ? " (en descanso)" : "") +
+      " · " + formatTime_(snapshot.secondsRemaining || 0) + " restante" +
+      "</small>" +
+      "</div>" +
+      '<div class="restore-banner-actions">' +
+      '<button class="btn btn-sm" id="btn-restore-discard">Empezar desde cero</button>' +
+      '<button class="btn btn-sm btn-primary" id="btn-restore-apply">Restaurar</button>' +
+      "</div>";
+    main.insertBefore(banner, main.firstChild);
+
+    document.getElementById("btn-restore-apply").addEventListener("click", function () {
+      applySavedState_(snapshot);
+      banner.remove();
+      render();
+    });
+    document.getElementById("btn-restore-discard").addEventListener("click", function () {
+      clearSavedState_();
+      banner.remove();
+    });
   }
 
   function configureTimer() {
@@ -187,13 +348,11 @@
     if (!round) return;
     var other = side === "a1" ? "a2" : "a1";
     round[side] = points;
-    // Regla 10-point must: el ganador del round tiene 10. Si pones
-    // < 10 a uno, el otro debe ser 10. Si pones 10, el otro queda
-    // como el operador lo dejó (puede ser null si no decidió).
     if (points < 10) {
       round[other] = 10;
     }
     renderScoring_();
+    saveState_();
   }
 
   function clearRoundScore() {
@@ -204,6 +363,7 @@
     round.a1 = null;
     round.a2 = null;
     renderScoring_();
+    saveState_();
   }
 
   function addAdv(side) {
@@ -212,6 +372,7 @@
     if (!round) return;
     round[side + "_adv"] += 1;
     renderScoring_();
+    saveState_();
   }
   function removeAdv(side) {
     if (!state.scoring) return;
@@ -219,6 +380,7 @@
     if (!round) return;
     round[side + "_adv"] = Math.max(0, round[side + "_adv"] - 1);
     renderScoring_();
+    saveState_();
   }
   function addFalta(side) {
     if (!state.scoring) return;
@@ -226,6 +388,7 @@
     if (!round) return;
     round[side + "_faltas"] += 1;
     renderScoring_();
+    saveState_();
   }
   function removeFalta(side) {
     if (!state.scoring) return;
@@ -233,6 +396,7 @@
     if (!round) return;
     round[side + "_faltas"] = Math.max(0, round[side + "_faltas"] - 1);
     renderScoring_();
+    saveState_();
   }
 
   function totalScore(side) {
@@ -273,12 +437,15 @@
       state.intervalId = null;
     }
     renderControls();
+    saveState_();
   }
 
   function tick() {
     state.secondsRemaining -= 1;
     if (state.secondsRemaining > 0) {
       renderTimer();
+      // Auto-save cada segundo para mantener la vista pública sincronizada
+      saveState_();
       return;
     }
 
@@ -320,6 +487,7 @@
     }
     renderTimer();
     renderControls();
+    saveState_();
   }
 
   function resetRound() {
@@ -331,6 +499,7 @@
     }
     renderTimer();
     renderControls();
+    saveState_();
   }
 
   function nextRound() {
@@ -355,6 +524,7 @@
     }
     renderTimer();
     renderControls();
+    saveState_();
   }
 
   function resetAll() {
@@ -445,12 +615,59 @@
 
     var t = state.tiempoConfig || { rounds: 1, segundosPorRound: 180, segundosDescanso: 0 };
 
+    var winnerBanner = "";
+    if (alreadyDecided && p.ganador) {
+      var ganadorNombre = p.ganador.nombre_completo || p.ganador.id || "";
+      var academia = p.ganador.academia || "";
+      var metodo = p.metodo_finalizacion || "DECISIÓN";
+      winnerBanner =
+        '<div class="winner-banner">' +
+        '<div class="winner-banner-label">GANADOR POR ' + escapeHtml_(metodo.toUpperCase()) + "</div>" +
+        '<div class="winner-banner-name">' + escapeHtml_(ganadorNombre) + "</div>" +
+        (academia ? '<div class="winner-banner-academia">' + escapeHtml_(academia) + "</div>" : "") +
+        "</div>";
+    } else if (alreadyDecided) {
+      // Empate o no contest (sin ganador específico)
+      winnerBanner =
+        '<div class="winner-banner winner-banner-tie">' +
+        '<div class="winner-banner-label">' + escapeHtml_((p.metodo_finalizacion || "FINALIZADO").toUpperCase()) + "</div>" +
+        "</div>";
+    }
+
+    if (alreadyDecided) {
+      // Vista "finalizada" en admin: solo banner + tiempo final + acciones,
+      // sin atletas/timer/scoring duplicados.
+      var tiempoFmt = formatTiempoFinalizacion_(p.tiempo_finalizacion);
+      var tiempo = tiempoFmt.clean ? "Tiempo: " + tiempoFmt.clean : "";
+      var round = p.round_finalizacion ? "Round " + p.round_finalizacion : "";
+      var detalle = [round, tiempo].filter(Boolean).join("  ·  ");
+      var notas = p.notas ? '<div class="finalizado-notas">' + escapeHtml_(p.notas) + "</div>" : "";
+      var rawTiempo = tiempoFmt.raw
+        ? '<div class="finalizado-raw">Valor crudo: ' + escapeHtml_(tiempoFmt.raw) + "</div>"
+        : "";
+
+      main.innerHTML =
+        winnerBanner +
+        (detalle ? '<div class="finalizado-detalle">' + escapeHtml_(detalle) + "</div>" : "") +
+        notas +
+        '<div class="finalizado-actions">' +
+        '<button class="btn btn-ghost" id="btn-editar-resultado" disabled title="Disponible en Tarea 23">✏ Editar resultado</button>' +
+        '<button class="btn btn-primary" id="btn-volver-bracket">← Volver al bracket</button>' +
+        "</div>" +
+        rawTiempo;
+
+      var bb = document.getElementById("btn-volver-bracket");
+      if (bb) {
+        bb.addEventListener("click", function () {
+          var bid = (state.pelea.bracket && state.pelea.bracket.id) || state.pelea.bracket_id;
+          if (bid) window.location.href = "./bracket.html?id=" + encodeURIComponent(bid);
+          else history.back();
+        });
+      }
+      return;
+    }
+
     main.innerHTML =
-      (alreadyDecided
-        ? '<div class="scoreboard-finalized-banner">' +
-          'Esta pelea ya tiene ganador. Cualquier cambio aquí no afecta el resultado guardado (puedes editarlo más adelante).' +
-          "</div>"
-        : "") +
       '<div class="scoreboard-atletas">' +
       renderAtletaCard_(p.atleta1, p.atleta1_id, "left", "a1", p.ganador_id === p.atleta1_id) +
       '<div class="scoreboard-vs">VS</div>' +
@@ -468,7 +685,6 @@
       "</div>" +
       '<div class="scoreboard-coming-soon">' +
       "Atajos: Space = play/pause · F = pantalla completa · ← −10s · → +10s" +
-      "<br>T20: finalizar pelea · T21: autosave + persistencia" +
       "</div>";
 
     bindControls_();
@@ -671,7 +887,7 @@
       '<div class="scoreboard-controls-row scoreboard-controls-adjust">' +
       '<button class="btn btn-control btn-adjust" id="btn-minus-10" title="Restar 10 segundos (Flecha ←)">−10 seg</button>' +
       '<button class="btn btn-control btn-adjust" id="btn-plus-10" title="Sumar 10 segundos (Flecha →)">+10 seg</button>' +
-      '<button class="btn btn-control btn-finalize" id="btn-finalize" hidden>✓ Finalizar pelea</button>' +
+      '<button class="btn btn-control btn-finalize" id="btn-finalize">✓ Finalizar pelea</button>' +
       "</div>"
     );
   }
@@ -690,18 +906,325 @@
     if (bn) bn.addEventListener("click", nextRound);
     if (bm10) bm10.addEventListener("click", function () { addTime(-10); });
     if (bp10) bp10.addEventListener("click", function () { addTime(10); });
-    if (bf) bf.addEventListener("click", finalizePlaceholder_);
+    if (bf) bf.addEventListener("click", openFinalizeModal_);
     renderControls();
   }
 
-  function finalizePlaceholder_() {
-    alert(
-      "Finalización de pelea — disponible en Tarea 20.\n\n" +
-      "Por ahora, anota el resultado:\n\n" +
-      "Total: " + totalScore("a1") + " — " + totalScore("a2") + "\n" +
-      "Advertencias: " + totalAdv("a1") + " / " + totalAdv("a2") + "\n" +
-      "Faltas: " + totalFaltas("a1") + " / " + totalFaltas("a2"),
-    );
+  /* ------------------------------------------------------------
+   * T20 — Modal de finalización de pelea
+   * ------------------------------------------------------------ */
+
+  var finalizeRefs = {};
+  var finalizeSaving = false;
+
+  function openFinalizeModal_() {
+    // Pausar el timer inmediatamente: el operador no está peleando
+    // mientras llena el modal, y queremos que la vista pública también
+    // pare al instante.
+    if (state.isRunning) pause();
+    ensureFinalizeUI_();
+    populateFinalizeForm_();
+    showFinalizeOverlay_();
+  }
+
+  function closeFinalizeModal_() {
+    if (finalizeRefs.overlay) {
+      finalizeRefs.overlay.classList.remove("is-open");
+    }
+    document.removeEventListener("keydown", onFinalizeKey_);
+  }
+
+  function onFinalizeKey_(e) {
+    if (e.key === "Escape") closeFinalizeModal_();
+  }
+
+  function ensureFinalizeUI_() {
+    if (finalizeRefs.overlay) return;
+
+    var overlay = document.createElement("div");
+    overlay.id = "finalize-overlay";
+    overlay.className = "modal-overlay";
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) closeFinalizeModal_();
+    });
+
+    var dialog = document.createElement("div");
+    dialog.className = "modal-dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+
+    var metodosOpts = (root.Reglamento.METODOS_FINALIZACION || [])
+      .map(function (m) {
+        return '<option value="' + escapeAttr_(m) + '">' + escapeHtml_(m) + "</option>";
+      })
+      .join("");
+
+    dialog.innerHTML =
+      '<header class="modal-header">' +
+      '<h2>Finalizar pelea</h2>' +
+      '<button type="button" class="modal-close" aria-label="Cerrar">×</button>' +
+      "</header>" +
+      '<div class="modal-error" hidden></div>' +
+      '<form class="modal-form" novalidate>' +
+      '<div class="form-grid">' +
+      '<div class="form-field form-field-full">' +
+      '<span class="form-label">Resultado *</span>' +
+      '<div class="radio-group ganador-radio">' +
+      '<label class="radio-pill"><input type="radio" name="ganador" value="a1" required /><span id="ganador-a1-label">Atleta 1</span></label>' +
+      '<label class="radio-pill"><input type="radio" name="ganador" value="a2" /><span id="ganador-a2-label">Atleta 2</span></label>' +
+      '<label class="radio-pill"><input type="radio" name="ganador" value="empate" /><span>Empate / No contest</span></label>' +
+      "</div>" +
+      '<small class="form-hint" id="resumen-puntaje" style="margin-top:8px;"></small>' +
+      '<small class="form-error" hidden></small>' +
+      "</div>" +
+      '<label class="form-field form-field-full">' +
+      '<span class="form-label">Método de finalización *</span>' +
+      '<select name="metodo" required>' +
+      '<option value="">Selecciona...</option>' +
+      metodosOpts +
+      "</select>" +
+      '<small class="form-error" hidden></small>' +
+      "</label>" +
+      '<label class="form-field">' +
+      '<span class="form-label">Round</span>' +
+      '<input type="number" name="round" min="1" />' +
+      '<small class="form-error" hidden></small>' +
+      "</label>" +
+      '<label class="form-field">' +
+      '<span class="form-label">Tiempo (MM:SS)</span>' +
+      '<input type="text" name="tiempo" pattern="[0-9]{1,2}:[0-5][0-9]" placeholder="03:00" />' +
+      '<small class="form-hint">Tiempo transcurrido del round cuando terminó.</small>' +
+      '<small class="form-error" hidden></small>' +
+      "</label>" +
+      '<label class="form-field form-field-full">' +
+      '<span class="form-label">Notas (opcional)</span>' +
+      '<textarea name="notas" rows="2" placeholder="Detalles del cierre, lesión, sub específico..."></textarea>' +
+      "</label>" +
+      "</div>" +
+      "</form>" +
+      '<footer class="modal-footer">' +
+      '<div class="modal-footer-right">' +
+      '<button type="button" class="btn btn-cancel">Cancelar</button>' +
+      '<button type="button" class="btn btn-primary btn-save">Guardar y volver al bracket</button>' +
+      "</div>" +
+      "</footer>";
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    var form = dialog.querySelector(".modal-form");
+    var saveBtn = dialog.querySelector(".btn-save");
+    saveBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      submitFinalize_();
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      submitFinalize_();
+    });
+    dialog.querySelector(".modal-close").addEventListener("click", closeFinalizeModal_);
+    dialog.querySelector(".btn-cancel").addEventListener("click", closeFinalizeModal_);
+
+    // Cuando el método cambia, auto-marcar Empate / No contest si aplica
+    var metodoSel = form.querySelector('[name="metodo"]');
+    metodoSel.addEventListener("change", function () {
+      var v = metodoSel.value || "";
+      if (/^Empate|^No Contest/i.test(v)) {
+        var empateRadio = form.querySelector('[name="ganador"][value="empate"]');
+        if (empateRadio) empateRadio.checked = true;
+      }
+    });
+
+    finalizeRefs.overlay = overlay;
+    finalizeRefs.dialog = dialog;
+    finalizeRefs.form = form;
+    finalizeRefs.saveBtn = saveBtn;
+    finalizeRefs.cancelBtn = dialog.querySelector(".btn-cancel");
+    finalizeRefs.errorBanner = dialog.querySelector(".modal-error");
+  }
+
+  function populateFinalizeForm_() {
+    var f = finalizeRefs.form;
+    f.reset();
+    clearFinalizeErrors_();
+    hideFinalizeError_();
+
+    var p = state.pelea;
+    var a1Name = (p.atleta1 && p.atleta1.nombre_completo) || "Atleta 1";
+    var a2Name = (p.atleta2 && p.atleta2.nombre_completo) || "Atleta 2";
+
+    document.getElementById("ganador-a1-label").textContent = a1Name;
+    document.getElementById("ganador-a2-label").textContent = a2Name;
+
+    // Smart defaults
+    var s1 = totalScore("a1");
+    var s2 = totalScore("a2");
+    var resumen = "Puntaje: " + a1Name + " " + s1 + " — " + s2 + " " + a2Name;
+    var advs = "Adv " + totalAdv("a1") + "/" + totalAdv("a2") +
+      "  ·  Faltas " + totalFaltas("a1") + "/" + totalFaltas("a2");
+    document.getElementById("resumen-puntaje").textContent = resumen + "  ·  " + advs;
+
+    // Default ganador: el que tiene más puntos (si hay diferencia)
+    if (s1 > s2 && p.atleta1_id) {
+      f.querySelector('[name="ganador"][value="a1"]').checked = true;
+    } else if (s2 > s1 && p.atleta2_id) {
+      f.querySelector('[name="ganador"][value="a2"]').checked = true;
+    }
+
+    // Default round = round actual
+    f.querySelector('[name="round"]').value = state.currentRound || 1;
+    f.querySelector('[name="round"]').max = state.tiempoConfig
+      ? state.tiempoConfig.rounds
+      : 1;
+
+    // Default tiempo = (round duration - remaining) o full duration si pelea terminó
+    var t = state.tiempoConfig;
+    if (t) {
+      var elapsed = state.isResting
+        ? t.segundosPorRound
+        : Math.max(0, t.segundosPorRound - state.secondsRemaining);
+      f.querySelector('[name="tiempo"]').value = formatTime_(elapsed);
+    }
+  }
+
+  function showFinalizeOverlay_() {
+    // En fullscreen, mover el overlay al fullscreen element para
+    // garantizar que sea visible.
+    var fsEl = document.fullscreenElement;
+    if (fsEl && finalizeRefs.overlay.parentNode !== fsEl) {
+      fsEl.appendChild(finalizeRefs.overlay);
+    } else if (!fsEl && finalizeRefs.overlay.parentNode !== document.body) {
+      document.body.appendChild(finalizeRefs.overlay);
+    }
+    finalizeRefs.overlay.classList.add("is-open");
+    document.addEventListener("keydown", onFinalizeKey_);
+    setTimeout(function () {
+      var first = finalizeRefs.form.querySelector('[name="metodo"]');
+      if (first) first.focus();
+    }, 50);
+  }
+
+  async function submitFinalize_() {
+    if (finalizeSaving) return;
+    clearFinalizeErrors_();
+    hideFinalizeError_();
+
+    var f = finalizeRefs.form;
+    var ganadorRadio = f.querySelector('[name="ganador"]:checked');
+    var metodo = f.querySelector('[name="metodo"]').value;
+    var roundVal = f.querySelector('[name="round"]').value;
+    var tiempoVal = f.querySelector('[name="tiempo"]').value.trim();
+    var notas = f.querySelector('[name="notas"]').value.trim();
+
+    var errors = {};
+    if (!ganadorRadio) errors.ganador = "Selecciona un resultado";
+    if (!metodo) errors.metodo = "Selecciona el método";
+
+    if (tiempoVal && !/^[0-9]{1,2}:[0-5][0-9]$/.test(tiempoVal)) {
+      errors.tiempo = "Formato: MM:SS (ej. 02:35)";
+    }
+    var roundNum = roundVal === "" ? "" : Number(roundVal);
+    if (roundVal !== "" && (!isFinite(roundNum) || roundNum < 1)) {
+      errors.round = "Debe ser ≥ 1";
+    }
+
+    if (Object.keys(errors).length) {
+      showFinalizeFieldErrors_(errors);
+      return;
+    }
+
+    // Construir payload
+    var ganadorSide = ganadorRadio.value; // "a1" | "a2" | "empate"
+    var p = state.pelea;
+    var ganadorId = "";
+    if (ganadorSide === "a1") ganadorId = p.atleta1_id || "";
+    else if (ganadorSide === "a2") ganadorId = p.atleta2_id || "";
+
+    var payload = {
+      id: state.peleaId,
+      ganador_id: ganadorId,
+      metodo_finalizacion: metodo,
+      round_finalizacion: roundVal === "" ? "" : roundNum,
+      tiempo_finalizacion: tiempoVal,
+      notas: notas,
+    };
+
+    finalizeSaving = true;
+    finalizeRefs.saveBtn.disabled = true;
+    finalizeRefs.cancelBtn.disabled = true;
+    finalizeRefs.saveBtn.textContent = "Guardando…";
+
+    try {
+      await root.api.post("peleas.update", payload);
+      // T21 — pelea finalizada, ya no necesitamos el snapshot
+      clearSavedState_();
+
+      // Broadcast inmediato a la vista pública para que refresque
+      // su estado sin esperar al polling.
+      try {
+        var ch = getBroadcastChannel_();
+        if (ch) {
+          ch.postMessage({
+            type: "finalized",
+            peleaId: state.peleaId,
+            savedAt: Date.now(),
+          });
+        }
+      } catch (e) { /* ignore */ }
+
+      // Redirigir al bracket para que pueda elegir la siguiente pelea
+      var bracketId = (state.pelea.bracket && state.pelea.bracket.id) || state.pelea.bracket_id;
+      if (bracketId) {
+        window.location.href = "./bracket.html?id=" + encodeURIComponent(bracketId);
+      } else {
+        // Sin bracket conocido, recargar el scoreboard para mostrar finalización
+        closeFinalizeModal_();
+        load();
+      }
+    } catch (err) {
+      showFinalizeBannerError_(err && err.message ? err.message : String(err));
+    } finally {
+      finalizeSaving = false;
+      finalizeRefs.saveBtn.disabled = false;
+      finalizeRefs.cancelBtn.disabled = false;
+      finalizeRefs.saveBtn.textContent = "Guardar y volver al bracket";
+    }
+  }
+
+  function showFinalizeFieldErrors_(errors) {
+    Object.keys(errors).forEach(function (name) {
+      var field = finalizeRefs.form.querySelector('[name="' + name + '"]');
+      if (!field) return;
+      var wrap = field.closest(".form-field");
+      var errEl = wrap && wrap.querySelector(".form-error");
+      if (errEl) {
+        errEl.textContent = errors[name];
+        errEl.hidden = false;
+      }
+      if (wrap) wrap.classList.add("has-error");
+    });
+  }
+
+  function clearFinalizeErrors_() {
+    if (!finalizeRefs.form) return;
+    finalizeRefs.form.querySelectorAll(".form-error").forEach(function (el) {
+      el.textContent = "";
+      el.hidden = true;
+    });
+    finalizeRefs.form.querySelectorAll(".form-field").forEach(function (el) {
+      el.classList.remove("has-error");
+    });
+  }
+
+  function showFinalizeBannerError_(msg) {
+    if (!finalizeRefs.errorBanner) return;
+    finalizeRefs.errorBanner.textContent = msg;
+    finalizeRefs.errorBanner.hidden = false;
+  }
+  function hideFinalizeError_() {
+    if (!finalizeRefs.errorBanner) return;
+    finalizeRefs.errorBanner.textContent = "";
+    finalizeRefs.errorBanner.hidden = true;
   }
 
   function renderControls() {
@@ -723,7 +1246,9 @@
     bn.disabled = isLastRound;
 
     if (bf) {
-      bf.hidden = !fightOver;
+      // Resaltar el botón cuando la pelea termine, pero estar siempre
+      // disponible para KO/sometimiento temprano.
+      bf.classList.toggle("is-prominent", fightOver);
     }
   }
 
@@ -750,6 +1275,25 @@
     return (m < 10 ? "0" + m : m) + ":" + (ss < 10 ? "0" + ss : ss);
   }
 
+  /**
+   * tiempo_finalizacion puede venir como "02:35" (string limpio) o como
+   * "Sat Dec 30 1899 02:35:00 GMT-..." si Google Sheets lo coerció a Date.
+   * Extraemos la parte HH:MM o MM:SS y la devolvemos limpia.
+   * Si el original difería del extraído, también devolvemos el raw para
+   * mostrarlo en letra mini como referencia.
+   */
+  function formatTiempoFinalizacion_(raw) {
+    if (!raw) return { clean: "", raw: "" };
+    var s = String(raw).trim();
+    var m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (m) {
+      var clean = m[1].length === 1 ? "0" + m[1] + ":" + m[2] : m[1] + ":" + m[2];
+      // Si solo el patrón MM:SS está en el string original, raw == clean
+      return { clean: clean, raw: clean === s ? "" : s };
+    }
+    return { clean: s, raw: "" };
+  }
+
   function initialsOf_(name) {
     var parts = String(name).trim().split(/\s+/).slice(0, 2);
     return parts.map(function (p) { return p.charAt(0).toUpperCase(); }).join("") || "?";
@@ -759,6 +1303,9 @@
     return String(v == null ? "" : v)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+  function escapeAttr_(v) {
+    return escapeHtml_(v);
   }
 
   // Expuesto para debugging / extensiones futuras
