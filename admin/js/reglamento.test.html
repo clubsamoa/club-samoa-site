@@ -373,12 +373,24 @@
           Reglamento.NIVELES.length === 4,
         );
         assertTrue(
-          "METODOS_FINALIZACION contiene 'KO (Knockout efectivo)'",
-          Reglamento.METODOS_FINALIZACION.indexOf("KO (Knockout efectivo)") >= 0,
+          "METODOS_FINALIZACION contiene 'KO'",
+          Reglamento.METODOS_FINALIZACION.indexOf("KO") >= 0,
         );
         assertTrue(
-          "METODOS_FINALIZACION contiene 'Decisión Unánime'",
-          Reglamento.METODOS_FINALIZACION.indexOf("Decisión Unánime") >= 0,
+          "METODOS_FINALIZACION contiene 'Decisión'",
+          Reglamento.METODOS_FINALIZACION.indexOf("Decisión") >= 0,
+        );
+        assertTrue(
+          "METODOS_FINALIZACION contiene 'Sumisión'",
+          Reglamento.METODOS_FINALIZACION.indexOf("Sumisión") >= 0,
+        );
+        assertTrue(
+          "METODOS_FINALIZACION contiene 'No Contest'",
+          Reglamento.METODOS_FINALIZACION.indexOf("No Contest") >= 0,
+        );
+        assertTrue(
+          "METODOS_FINALIZACION tiene 10 entradas (estilo Smoothcomp)",
+          Reglamento.METODOS_FINALIZACION.length === 10,
         );
 
         // -------------------------------------------------------

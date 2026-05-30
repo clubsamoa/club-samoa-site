@@ -36,23 +36,20 @@
 
   var NIVELES = ["Novato", "Principiante", "Intermedio", "Avanzado"];
 
-  // Pág. 14 del reglamento.
+  // Lista simplificada estilo Smoothcomp (traducida). Cubre los métodos
+  // operacionales más comunes en un evento de un día. Para detalles del
+  // reglamento ver pág. 14 del PDF FAMM 2025.
   var METODOS_FINALIZACION = [
-    "Sometimiento (Tap Out)",
-    "Sometimiento (Rendición verbal)",
-    "KO (Knockout efectivo)",
-    "TKO (Knockout técnico)",
-    "Recomendación médica",
-    "Decisión Unánime",
-    "Decisión Dividida",
-    "Decisión Mayoritaria",
-    "Decisión Técnica",
-    "Empate Técnico",
-    "Empate Unánime",
-    "Empate Mayoritario",
-    "Empate Dividido",
+    "Decisión",
+    "Sumisión",
+    "TKO",
+    "KO",
     "Descalificación",
+    "Abandono",
     "No Contest",
+    "No Pasó Pesaje",
+    "No Pasó Examen Médico",
+    "No Se Presentó",
   ];
 
   // Pág. 2: divisiones por edad.

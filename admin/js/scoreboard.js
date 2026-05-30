@@ -652,7 +652,8 @@
         notas +
         '<div class="finalizado-actions">' +
         '<button class="btn btn-ghost" id="btn-editar-resultado">✏ Editar resultado</button>' +
-        '<button class="btn btn-primary" id="btn-volver-bracket">← Volver al bracket</button>' +
+        '<button class="btn btn-ghost" id="btn-volver-bracket">← Volver al bracket</button>' +
+        '<button class="btn btn-primary" id="btn-proxima-pelea">Próxima pelea pendiente →</button>' +
         "</div>" +
         rawTiempo;
 
@@ -667,6 +668,18 @@
       var be = document.getElementById("btn-editar-resultado");
       if (be) {
         be.addEventListener("click", openFinalizeModal_);
+      }
+      var bnx = document.getElementById("btn-proxima-pelea");
+      if (bnx) {
+        bnx.addEventListener("click", function () {
+          bnx.disabled = true;
+          bnx.textContent = "Buscando…";
+          findAndGoToNextPending_({ alertIfNone: true }).finally(function () {
+            // Si no navegamos, dejar el botón usable de nuevo
+            bnx.disabled = false;
+            bnx.textContent = "Próxima pelea pendiente →";
+          });
+        });
       }
       return;
     }
@@ -1032,11 +1045,14 @@
     dialog.querySelector(".modal-close").addEventListener("click", closeFinalizeModal_);
     dialog.querySelector(".btn-cancel").addEventListener("click", closeFinalizeModal_);
 
-    // Cuando el método cambia, auto-marcar Empate / No contest si aplica
+    // Cuando el método es "No Contest", auto-marcar Empate / No contest.
+    // Para "Descalificación", "Abandono", "No Pasó Pesaje", "No Pasó Examen Médico"
+    // y "No Se Presentó" hay un ganador implícito (el otro atleta), así que
+    // dejamos que el operador lo seleccione manualmente.
     var metodoSel = form.querySelector('[name="metodo"]');
     metodoSel.addEventListener("change", function () {
       var v = metodoSel.value || "";
-      if (/^Empate|^No Contest/i.test(v)) {
+      if (/^No Contest$/i.test(v)) {
         var empateRadio = form.querySelector('[name="ganador"][value="empate"]');
         if (empateRadio) empateRadio.checked = true;
       }
@@ -1145,6 +1161,79 @@
     }, 50);
   }
 
+  /**
+   * T25 — Busca la siguiente pelea pendiente en el mismo bracket (con ambos
+   * atletas asignados y sin ganador), ordenada por ronda y número de pelea.
+   *
+   * @param {Object} opts
+   * @param {boolean} [opts.alertIfNone] — si true, muestra alert cuando no hay más.
+   *                                       Si false, no hace nada cuando no hay (caller decide).
+   * @param {boolean} [opts.fallbackToBracket] — si true y no hay próxima, navega a bracket.html.
+   * @returns {Promise<boolean>} — true si se navegó a la siguiente, false en otro caso.
+   */
+  async function findAndGoToNextPending_(opts) {
+    opts = opts || {};
+    var bracketId =
+      (state.pelea && state.pelea.bracket && state.pelea.bracket.id) ||
+      (state.pelea && state.pelea.bracket_id);
+    if (!bracketId) {
+      if (opts.alertIfNone) alert("No se encontró el bracket de esta pelea.");
+      return false;
+    }
+    try {
+      var res = await root.api.get("brackets.get", { id: bracketId });
+      var bracket = res && res.bracket;
+      var peleas = (bracket && bracket.peleas) || [];
+      var pending = peleas.filter(function (p) {
+        return (
+          p.id !== state.peleaId &&
+          p.atleta1_id &&
+          p.atleta2_id &&
+          !p.ganador_id &&
+          !p.bye
+        );
+      });
+      pending.sort(function (a, b) {
+        var ra = Number(a.ronda_idx) || 0;
+        var rb = Number(b.ronda_idx) || 0;
+        if (ra !== rb) return ra - rb;
+        return (Number(a.numero_pelea) || 0) - (Number(b.numero_pelea) || 0);
+      });
+      if (pending.length > 0) {
+        window.location.href =
+          "./scoreboard.html?pelea_id=" + encodeURIComponent(pending[0].id);
+        return true;
+      }
+      // No hay pendientes
+      if (opts.fallbackToBracket) {
+        window.location.href =
+          "./bracket.html?id=" + encodeURIComponent(bracketId);
+        return true;
+      }
+      if (opts.alertIfNone) {
+        alert(
+          "🎉 ¡Todas las peleas de este bracket ya tienen ganador!\n\n" +
+          "Ve al resumen del evento para ver el podio.",
+        );
+      }
+      return false;
+    } catch (err) {
+      console.warn("[scoreboard] no se pudo buscar próxima pelea:", err);
+      if (opts.fallbackToBracket) {
+        window.location.href =
+          "./bracket.html?id=" + encodeURIComponent(bracketId);
+        return true;
+      }
+      if (opts.alertIfNone) {
+        alert(
+          "Error al buscar próxima pelea: " +
+          (err && err.message ? err.message : String(err)),
+        );
+      }
+      return false;
+    }
+  }
+
   async function submitFinalize_() {
     if (finalizeSaving) return;
     clearFinalizeErrors_();
@@ -1222,12 +1311,13 @@
         closeFinalizeModal_();
         load();
       } else {
-        // Modo creación: redirigir al bracket para elegir la siguiente pelea
-        var bracketId = (state.pelea.bracket && state.pelea.bracket.id) || state.pelea.bracket_id;
-        if (bracketId) {
-          window.location.href = "./bracket.html?id=" + encodeURIComponent(bracketId);
-        } else {
-          // Sin bracket conocido, recargar el scoreboard para mostrar finalización
+        // Modo creación: saltar directo a la próxima pelea pendiente del
+        // mismo bracket. Si no hay más, caer al bracket.html (donde el
+        // operador puede ver el árbol completo o elegir manualmente).
+        finalizeRefs.saveBtn.textContent = "Buscando próxima pelea…";
+        var navigated = await findAndGoToNextPending_({ fallbackToBracket: true });
+        if (!navigated) {
+          // No hubo navegación posible — recargar scoreboard como fallback
           closeFinalizeModal_();
           load();
         }
