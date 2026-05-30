@@ -155,8 +155,14 @@
         evento: state.evento,
         panel: panel,
       });
+    } else if (name === "pesaje" && window.EventoPesaje) {
+      window.EventoPesaje.init({
+        eventoId: state.eventoId,
+        evento: state.evento,
+        panel: panel,
+      });
     }
-    // pesaje (T12), brackets (T13+) se enganchan después
+    // brackets (T13+) se engancha después
   }
 
   function activateInitialTab() {
