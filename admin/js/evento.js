@@ -161,8 +161,13 @@
         evento: state.evento,
         panel: panel,
       });
+    } else if (name === "brackets" && window.EventoBrackets) {
+      window.EventoBrackets.init({
+        eventoId: state.eventoId,
+        evento: state.evento,
+        panel: panel,
+      });
     }
-    // brackets (T13+) se engancha después
   }
 
   function activateInitialTab() {
