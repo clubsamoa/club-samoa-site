@@ -61,6 +61,12 @@
       icon: "·",
       href: "./js/inscripciones-api.test.html",
     },
+    {
+      key: "tools-bracket-builder",
+      label: "Tests · bracket builder",
+      icon: "·",
+      href: "./js/bracket-builder.test.html",
+    },
   ];
 
   function init() {
