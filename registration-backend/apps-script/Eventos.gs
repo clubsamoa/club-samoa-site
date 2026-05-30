@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.4.0",
+  version: "0.5.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -76,6 +76,7 @@ const INSCRIPCIONES_HEADERS = [
   "Categoria calculada",
   "Estatus",
   "Creado en",
+  "Categoria override",
 ];
 
 const BRACKETS_HEADERS = [
@@ -302,6 +303,10 @@ function routeAction_(action, payload) {
       return handleInscripcionesSetPesoPesaje_(payload);
     case "inscripciones.setestatus":
       return handleInscripcionesSetEstatus_(payload);
+    case "inscripciones.setcategoria":
+      return handleInscripcionesSetCategoria_(payload);
+    case "inscripciones.clearcategoria":
+      return handleInscripcionesClearCategoria_(payload);
     case "inscripciones.delete":
       return handleInscripcionesDelete_(payload);
 
@@ -1130,6 +1135,7 @@ const INSCRIPCIONES_FIELDS = [
   { key: "categoria_calculada", header: "Categoria calculada",  type: "string",   system: true },
   { key: "estatus",             header: "Estatus",              type: "enum",     values: ESTATUS_INSCRIPCION, system: true },
   { key: "creado_en",           header: "Creado en",            type: "datetime", system: true },
+  { key: "categoria_override",  header: "Categoria override",   type: "boolean",  system: true },
 ];
 
 function rowToInscripcion_(row) {
@@ -1286,14 +1292,77 @@ function handleInscripcionesSetPesoPesaje_(payload) {
   if (pesoCol <= 0) throw new Error("Columna 'Peso pesaje (kg)' no encontrada.");
   sheet.getRange(rowIndex, pesoCol).setValue(peso);
 
-  // 2) Recalcula la categoría con el nuevo peso
+  // 2) Recalcula la categoría con el nuevo peso, SOLO si no hay override manual
   const ins = rowToInscripcion_(row);
-  ins.peso_pesaje_kg = peso;
-  const nuevaCat = calcularCategoriaCompleta_(spreadsheet, ins);
-  const catCol = headers.indexOf("Categoria calculada") + 1;
-  if (catCol > 0) sheet.getRange(rowIndex, catCol).setValue(nuevaCat);
+  if (!ins.categoria_override) {
+    ins.peso_pesaje_kg = peso;
+    const nuevaCat = calcularCategoriaCompleta_(spreadsheet, ins);
+    const catCol = headers.indexOf("Categoria calculada") + 1;
+    if (catCol > 0) sheet.getRange(rowIndex, catCol).setValue(nuevaCat);
+  }
 
   // Devolver el estado actualizado
+  const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  return { ok: true, inscripcion: rowToInscripcion_(finalRow) };
+}
+
+/**
+ * Sobreescribe manualmente la categoría calculada. Marca categoria_override
+ * = true para que setpesopesaje no la recalcule. Útil cuando el peso real
+ * pone al atleta en una categoría que la operadora quiere cambiar.
+ */
+function handleInscripcionesSetCategoria_(payload) {
+  requireFields_(payload, ["id", "categoria"]);
+  const categoria = String(payload.categoria).trim();
+  if (!categoria) throw new Error("categoria no puede estar vacía");
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  if (!row) throw new Error("Inscripción no encontrada: " + payload.id);
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.inscripciones);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const catCol = headers.indexOf("Categoria calculada") + 1;
+  if (catCol <= 0) throw new Error("Columna 'Categoria calculada' no encontrada.");
+  sheet.getRange(rowIndex, catCol).setValue(categoria);
+
+  const ovCol = headers.indexOf("Categoria override") + 1;
+  if (ovCol <= 0) {
+    throw new Error(
+      "Columna 'Categoria override' no encontrada. Ejecuta setupEventosSheets() o ?action=setup para crearla.",
+    );
+  }
+  sheet.getRange(rowIndex, ovCol).setValue(true);
+
+  const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  return { ok: true, inscripcion: rowToInscripcion_(finalRow) };
+}
+
+/**
+ * Quita el override manual y recalcula la categoría automáticamente
+ * según el peso (de pesaje si existe, si no el de referencia del atleta).
+ */
+function handleInscripcionesClearCategoria_(payload) {
+  requireFields_(payload, ["id"]);
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  if (!row) throw new Error("Inscripción no encontrada: " + payload.id);
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.inscripciones);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const ovCol = headers.indexOf("Categoria override") + 1;
+  if (ovCol > 0) sheet.getRange(rowIndex, ovCol).setValue(false);
+
+  // Recalcular categoría con el peso actual
+  const ins = rowToInscripcion_(row);
+  ins.categoria_override = false;
+  const auto = calcularCategoriaCompleta_(spreadsheet, ins);
+  const catCol = headers.indexOf("Categoria calculada") + 1;
+  if (catCol > 0) sheet.getRange(rowIndex, catCol).setValue(auto);
+
   const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
   return { ok: true, inscripcion: rowToInscripcion_(finalRow) };
 }

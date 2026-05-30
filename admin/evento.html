@@ -22,7 +22,7 @@
       <div class="evento-tabs" role="tablist">
         <button class="evento-tab is-active" data-tab="detalle" type="button" role="tab">Detalle</button>
         <button class="evento-tab" data-tab="inscripciones" type="button" role="tab">Inscripciones</button>
-        <button class="evento-tab" data-tab="pesaje" type="button" role="tab" disabled title="Disponible en T12">Pesaje</button>
+        <button class="evento-tab" data-tab="pesaje" type="button" role="tab">Pesaje</button>
         <button class="evento-tab" data-tab="brackets" type="button" role="tab" disabled title="Disponible en T13–T17">Brackets</button>
       </div>
 
@@ -34,11 +34,7 @@
           <!-- Renderizado por evento-inscripciones.js al activarse -->
         </section>
         <section class="evento-tab-panel" data-panel="pesaje" role="tabpanel" hidden>
-          <div class="placeholder">
-            <span class="placeholder-tag">Coming soon · Tarea 12</span>
-            <h2>Pesaje del día</h2>
-            <p>Aquí vas a capturar el peso real de cada atleta inscrito el día del evento. El sistema recalcula la categoría automáticamente.</p>
-          </div>
+          <!-- Renderizado por evento-pesaje.js al activarse -->
         </section>
         <section class="evento-tab-panel" data-panel="brackets" role="tabpanel" hidden>
           <div class="placeholder">
@@ -56,6 +52,7 @@
     <script src="./js/eventos-form.js"></script>
     <script src="./js/inscripciones-form.js"></script>
     <script src="./js/evento-inscripciones.js"></script>
+    <script src="./js/evento-pesaje.js"></script>
     <script src="./js/evento.js"></script>
     <script src="./js/shell.js"></script>
   </body>

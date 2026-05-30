@@ -1529,3 +1529,209 @@ textarea {
   }
 }
 
+/* =============================================================
+   Tab Pesaje (T12)
+   ============================================================= */
+
+.pesaje-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.pesaje-table {
+  min-width: 980px;
+}
+
+.pesaje-table td {
+  vertical-align: middle;
+}
+
+.pesaje-row-aprobado {
+  background: rgba(86, 160, 86, 0.05);
+}
+
+.pesaje-row-rechazado {
+  background: rgba(244, 7, 6, 0.05);
+}
+
+.categoria-declarada {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+/* Input de peso inline */
+
+.peso-input-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.peso-input {
+  width: 84px;
+  padding: 7px 26px 7px 10px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  text-align: right;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.peso-input:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+  background: var(--panel-2);
+}
+
+.peso-input::-webkit-outer-spin-button,
+.peso-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.peso-unit {
+  position: absolute;
+  right: 8px;
+  color: var(--muted-2);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.peso-status {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  min-width: 80px;
+  vertical-align: middle;
+}
+
+.peso-status.is-error {
+  color: #ff9090;
+  font-weight: 500;
+}
+
+/* Celda de categoría con warning */
+
+.cat-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-cambio {
+  background: rgba(220, 165, 70, 0.22);
+  color: #f0c89a;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-ok {
+  background: rgba(86, 160, 86, 0.18);
+  color: #a8d9a8;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.badge-manual {
+  background: rgba(86, 138, 200, 0.22);
+  color: #a8c8f0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Dropdown de categoría en pesaje */
+
+.cat-cell-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.cat-cell-row:last-child {
+  margin-bottom: 0;
+}
+
+.categoria-select {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 6px 26px 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  appearance: none;
+  min-width: 180px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 12px) calc(50% - 1px),
+    calc(100% - 7px) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.categoria-select:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+  background-color: var(--panel-2);
+}
+
+.btn-cat-reset {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+/* Acciones */
+
+.pesaje-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-aprobar {
+  background: var(--button-red);
+  border-color: var(--button-red-deep);
+  color: #fff;
+}
+
+.btn-aprobar:hover {
+  background: var(--brand);
+}
+
+.btn-rechazar {
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .pesaje-table {
+    min-width: 900px;
+  }
+  .peso-input {
+    width: 72px;
+  }
+}
+
