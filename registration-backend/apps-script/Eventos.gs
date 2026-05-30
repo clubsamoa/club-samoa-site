@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.7.0",
+  version: "0.8.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -1882,4 +1882,250 @@ function handlePeleasGet_(payload) {
   }
 
   return { ok: true, pelea: pelea };
+}
+
+/* ============================================================
+ * Google Form de auto-registro de atletas (opcional, v0.8.0)
+ * ============================================================
+ *
+ * Crea un Google Form que los atletas pueden llenar para
+ * auto-inscribirse en el catálogo. Las respuestas se procesan
+ * vía trigger onFormSubmit y se insertan en la pestaña Atletas
+ * con atl_XXX autogenerado, activo=true y creado_en=now.
+ *
+ * USO:
+ *   1. Desde el editor de Apps Script, ejecuta `setupAtletasForm()`
+ *      UNA VEZ. Te pedirá autorizar acceso a Forms y Triggers.
+ *   2. Mira el panel "Ejecuciones" (icono de reloj a la izquierda):
+ *      ahí va a aparecer la URL pública del Form que se creó.
+ *      También puedes correr `getAtletasFormUrls()` para verla
+ *      de nuevo.
+ *   3. Comparte la URL con los atletas (WhatsApp, redes, etc.).
+ *   4. Cada respuesta se procesa automáticamente. Verás los
+ *      atletas nuevos en la pestaña Atletas con su atl_XXX.
+ *
+ * Re-ejecutar setupAtletasForm() es idempotente: reusa el Form
+ * existente y re-instala el trigger.
+ * Para borrar y recrear desde cero, ejecuta `resetAtletasForm()`.
+ */
+
+const ATLETAS_FORM = {
+  formIdProperty: "CLUB_SAMOA_ATLETAS_FORM_ID",
+  title: "Inscripción al catálogo de atletas — Club Samoa",
+  description:
+    "Llena este formulario para entrar al catálogo de atletas de Club Samoa. " +
+    "Tus datos quedarán guardados y los usaremos para inscribirte a los eventos del año. " +
+    "Si necesitas modificar algo, escríbenos por WhatsApp.",
+};
+
+function setupAtletasForm() {
+  const props = PropertiesService.getScriptProperties();
+  const existingId = props.getProperty(ATLETAS_FORM.formIdProperty);
+
+  let form = null;
+  if (existingId) {
+    try {
+      form = FormApp.openById(existingId);
+      Logger.log("Form ya existe (ID " + existingId + "), reusando.");
+    } catch (e) {
+      Logger.log("Form ID guardado es inválido, creando uno nuevo.");
+      form = null;
+    }
+  }
+
+  if (!form) {
+    form = FormApp.create(ATLETAS_FORM.title);
+    form.setDescription(ATLETAS_FORM.description);
+    form.setCollectEmail(true);
+    form.setLimitOneResponsePerUser(false);
+    form.setAllowResponseEdits(false);
+    form.setConfirmationMessage(
+      "¡Listo! Quedaste registrado en el catálogo de atletas de Club Samoa. " +
+      "Te avisaremos por los canales del Club cuándo abre la inscripción al próximo evento.",
+    );
+
+    form.addTextItem()
+      .setTitle("Nombre completo")
+      .setRequired(true);
+
+    form.addDateItem()
+      .setTitle("Fecha de nacimiento")
+      .setHelpText("Selecciona día / mes / año.")
+      .setRequired(true);
+
+    form.addMultipleChoiceItem()
+      .setTitle("Género")
+      .setChoiceValues(["Masculino", "Femenino"])
+      .setRequired(true);
+
+    form.addTextItem()
+      .setTitle("Años de práctica")
+      .setHelpText("Cuánto tiempo llevas entrenando MMA o artes marciales (puede ser decimal, ej. 1.5).")
+      .setRequired(true)
+      .setValidation(
+        FormApp.createTextValidation()
+          .requireNumberGreaterThanOrEqualTo(0)
+          .setHelpText("Ingresa un número (ej. 2 o 2.5).")
+          .build(),
+      );
+
+    form.addTextItem()
+      .setTitle("Peso de referencia (kg)")
+      .setHelpText("Tu peso actual aproximado en kilogramos.")
+      .setRequired(true)
+      .setValidation(
+        FormApp.createTextValidation()
+          .requireNumberGreaterThan(0)
+          .setHelpText("Ingresa un número en kg (ej. 70 o 72.5).")
+          .build(),
+      );
+
+    form.addTextItem()
+      .setTitle("Academia")
+      .setHelpText("Nombre de tu academia o gimnasio. Si no perteneces a uno, escribe 'Independiente'.");
+
+    form.addTextItem()
+      .setTitle("País")
+      .setHelpText("País de origen. Si lo dejas vacío asumimos México.");
+
+    // No conectamos a destination spreadsheet — el trigger se encarga
+    // de escribir directamente a la pestaña Atletas con el formato correcto.
+    props.setProperty(ATLETAS_FORM.formIdProperty, form.getId());
+    Logger.log("Form creado: " + form.getPublishedUrl());
+  }
+
+  installAtletaFormSubmitTrigger_(form);
+
+  const publicUrl = form.getPublishedUrl();
+  const editUrl = form.getEditUrl();
+  Logger.log("=== Google Form de atletas ===");
+  Logger.log("URL PÚBLICA (compartir con atletas):");
+  Logger.log("  " + publicUrl);
+  Logger.log("URL DE EDICIÓN (para modificar las preguntas):");
+  Logger.log("  " + editUrl);
+  Logger.log("==============================");
+  return { publicUrl: publicUrl, editUrl: editUrl };
+}
+
+function getAtletasFormUrls() {
+  const props = PropertiesService.getScriptProperties();
+  const existingId = props.getProperty(ATLETAS_FORM.formIdProperty);
+  if (!existingId) {
+    Logger.log("No hay Form creado. Ejecuta setupAtletasForm() primero.");
+    return null;
+  }
+  const form = FormApp.openById(existingId);
+  const publicUrl = form.getPublishedUrl();
+  const editUrl = form.getEditUrl();
+  Logger.log("URL PÚBLICA: " + publicUrl);
+  Logger.log("URL EDICIÓN: " + editUrl);
+  return { publicUrl: publicUrl, editUrl: editUrl };
+}
+
+function resetAtletasForm() {
+  const props = PropertiesService.getScriptProperties();
+  const existingId = props.getProperty(ATLETAS_FORM.formIdProperty);
+  if (existingId) {
+    try {
+      const form = FormApp.openById(existingId);
+      // Apps Script no permite borrar Forms programáticamente. Solo
+      // limpiamos la referencia y removemos triggers.
+      Logger.log("Form anterior queda huérfano en Drive: " + form.getEditUrl());
+      Logger.log("Si quieres borrarlo del todo, hazlo manualmente desde Drive.");
+    } catch (e) {
+      Logger.log("Form ID guardado es inválido, removiendo referencia.");
+    }
+  }
+  props.deleteProperty(ATLETAS_FORM.formIdProperty);
+
+  // Remover triggers viejos
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "onAtletaFormSubmit") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  Logger.log("Reset completo. Ejecuta setupAtletasForm() para crear uno nuevo.");
+}
+
+function installAtletaFormSubmitTrigger_(form) {
+  // Borrar triggers previos para esta función (evitar duplicados)
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === "onAtletaFormSubmit") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  ScriptApp.newTrigger("onAtletaFormSubmit")
+    .forForm(form)
+    .onFormSubmit()
+    .create();
+  Logger.log("Trigger onAtletaFormSubmit instalado.");
+}
+
+/**
+ * Trigger handler. Apps Script lo llama cuando alguien envía el Form.
+ * Toma los item responses, los mapea al schema interno y crea el atleta
+ * usando handleAtletasCreate_ (que ya genera ID, valida y persiste).
+ */
+function onAtletaFormSubmit(e) {
+  try {
+    const responses = e.response.getItemResponses();
+    const payload = {};
+    responses.forEach(function (r) {
+      const title = r.getItem().getTitle();
+      const value = r.getResponse();
+      switch (title) {
+        case "Nombre completo":
+          payload.nombre_completo = String(value).trim();
+          break;
+        case "Fecha de nacimiento":
+          // Forms devuelve "YYYY-MM-DD"
+          payload.fecha_nacimiento = String(value);
+          break;
+        case "Género":
+          payload.genero = String(value);
+          break;
+        case "Años de práctica":
+          payload.anios_practica = Number(value);
+          break;
+        case "Peso de referencia (kg)":
+          payload.peso_referencia_kg = Number(value);
+          break;
+        case "Academia":
+          payload.academia = String(value || "").trim();
+          break;
+        case "País":
+          payload.pais = String(value || "").trim();
+          break;
+      }
+    });
+
+    // Defaults inferidos
+    if (!payload.pais) payload.pais = "México";
+    if (!payload.nivel && typeof payload.anios_practica === "number") {
+      payload.nivel = sugerirNivelGs_(payload.anios_practica);
+    }
+
+    const result = handleAtletasCreate_(payload);
+    Logger.log("[FormSubmit] Atleta creado: " + (result.atleta && result.atleta.id) +
+      " (" + (result.atleta && result.atleta.nombre_completo) + ")");
+  } catch (err) {
+    // No re-throw. Las respuestas crudas quedan en la consola del Form
+    // y podemos procesarlas a mano si algo se rompe.
+    Logger.log("[FormSubmit] ERROR: " + (err && err.message ? err.message : err));
+    Logger.log("[FormSubmit] Stack: " + (err && err.stack ? err.stack : ""));
+  }
+}
+
+/**
+ * Espejo en Apps Script de Reglamento.sugerirNivel (cliente).
+ * Mantener sincronizado con admin/js/reglamento.js.
+ */
+function sugerirNivelGs_(aniosPractica) {
+  const n = Number(aniosPractica) || 0;
+  if (n < 1) return "Novato";
+  if (n < 2) return "Principiante";
+  if (n < 4) return "Intermedio";
+  return "Avanzado";
 }
