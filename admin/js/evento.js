@@ -117,6 +117,63 @@
         }
       });
     }
+
+    var btnDelete = document.getElementById("btn-eliminar-evento");
+    if (btnDelete) {
+      btnDelete.addEventListener("click", confirmDeleteEvento);
+    }
+  }
+
+  /**
+   * Eliminar evento (hard delete con cascade).
+   * Requiere que el operador escriba el nombre exacto del evento para confirmar.
+   */
+  async function confirmDeleteEvento() {
+    if (!state.evento) return;
+    var ev = state.evento;
+
+    var msg =
+      "⚠️ ELIMINAR EVENTO PERMANENTEMENTE\n\n" +
+      "Vas a borrar:\n" +
+      "  • El evento \"" + ev.nombre + "\"\n" +
+      "  • Todas sus inscripciones de atletas\n" +
+      "  • Todos los brackets generados\n" +
+      "  • Todas las peleas con sus resultados\n\n" +
+      "Esta acción NO se puede deshacer desde la app.\n" +
+      "(Sí queda en el historial de revisiones de Google Sheets.)\n\n" +
+      "Para confirmar, escribe el nombre del evento exacto:";
+
+    var typed = window.prompt(msg, "");
+    if (typed === null) return; // canceló
+    if (String(typed).trim() !== String(ev.nombre).trim()) {
+      alert("El nombre no coincide. No se eliminó nada.");
+      return;
+    }
+
+    var btn = document.getElementById("btn-eliminar-evento");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Eliminando…";
+    }
+
+    try {
+      var res = await window.api.post("eventos.delete", { id: state.eventoId });
+      var d = (res && res.deleted) || {};
+      alert(
+        "Evento eliminado.\n\n" +
+        "  • " + (d.evento || 0) + " evento\n" +
+        "  • " + (d.inscripciones || 0) + " inscripciones\n" +
+        "  • " + (d.brackets || 0) + " brackets\n" +
+        "  • " + (d.peleas || 0) + " peleas",
+      );
+      window.location.href = "./eventos.html";
+    } catch (err) {
+      alert("Error al eliminar: " + (err.message || err));
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "🗑 Eliminar";
+      }
+    }
   }
 
   function switchTab(name) {
@@ -215,7 +272,10 @@
       '<div class="card">' +
       '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px; flex-wrap:wrap;">' +
       '<h3 style="margin:0; font-family:Anton,Oswald,sans-serif; letter-spacing:0.04em; text-transform:uppercase; font-size:18px;">Detalle del evento</h3>' +
+      '<div style="display:flex; gap:8px;">' +
       '<button id="btn-editar-evento" class="btn btn-ghost btn-sm">✏️ Editar</button>' +
+      '<button id="btn-eliminar-evento" class="btn btn-danger btn-sm">🗑 Eliminar</button>' +
+      "</div>" +
       "</div>" +
       '<dl class="evento-detalle-dl">' +
       row("ID", ev.id) +
