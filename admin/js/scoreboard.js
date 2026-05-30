@@ -651,7 +651,7 @@
         (detalle ? '<div class="finalizado-detalle">' + escapeHtml_(detalle) + "</div>" : "") +
         notas +
         '<div class="finalizado-actions">' +
-        '<button class="btn btn-ghost" id="btn-editar-resultado" disabled title="Disponible en Tarea 23">✏ Editar resultado</button>' +
+        '<button class="btn btn-ghost" id="btn-editar-resultado">✏ Editar resultado</button>' +
         '<button class="btn btn-primary" id="btn-volver-bracket">← Volver al bracket</button>' +
         "</div>" +
         rawTiempo;
@@ -663,6 +663,10 @@
           if (bid) window.location.href = "./bracket.html?id=" + encodeURIComponent(bid);
           else history.back();
         });
+      }
+      var be = document.getElementById("btn-editar-resultado");
+      if (be) {
+        be.addEventListener("click", openFinalizeModal_);
       }
       return;
     }
@@ -916,12 +920,15 @@
 
   var finalizeRefs = {};
   var finalizeSaving = false;
+  var finalizeMode = "create"; // "create" | "edit"
 
   function openFinalizeModal_() {
     // Pausar el timer inmediatamente: el operador no está peleando
     // mientras llena el modal, y queremos que la vista pública también
     // pare al instante.
     if (state.isRunning) pause();
+    // Detectar modo según si la pelea ya tiene ganador
+    finalizeMode = state.pelea && state.pelea.ganador_id ? "edit" : "create";
     ensureFinalizeUI_();
     populateFinalizeForm_();
     showFinalizeOverlay_();
@@ -1056,35 +1063,69 @@
     document.getElementById("ganador-a1-label").textContent = a1Name;
     document.getElementById("ganador-a2-label").textContent = a2Name;
 
-    // Smart defaults
-    var s1 = totalScore("a1");
-    var s2 = totalScore("a2");
-    var resumen = "Puntaje: " + a1Name + " " + s1 + " — " + s2 + " " + a2Name;
-    var advs = "Adv " + totalAdv("a1") + "/" + totalAdv("a2") +
-      "  ·  Faltas " + totalFaltas("a1") + "/" + totalFaltas("a2");
-    document.getElementById("resumen-puntaje").textContent = resumen + "  ·  " + advs;
+    // Título del modal y texto del botón según modo
+    var titleEl = finalizeRefs.dialog.querySelector(".modal-header h2");
+    if (titleEl) {
+      titleEl.textContent = finalizeMode === "edit"
+        ? "Editar resultado de la pelea"
+        : "Finalizar pelea";
+    }
+    finalizeRefs.saveBtn.textContent = finalizeMode === "edit"
+      ? "Guardar cambios"
+      : "Guardar y volver al bracket";
 
-    // Default ganador: el que tiene más puntos (si hay diferencia)
-    if (s1 > s2 && p.atleta1_id) {
-      f.querySelector('[name="ganador"][value="a1"]').checked = true;
-    } else if (s2 > s1 && p.atleta2_id) {
-      f.querySelector('[name="ganador"][value="a2"]').checked = true;
+    if (finalizeMode === "edit") {
+      // ====== Modo edición: usar valores almacenados en el backend ======
+      // Ganador
+      if (p.ganador_id && p.ganador_id === p.atleta1_id) {
+        f.querySelector('[name="ganador"][value="a1"]').checked = true;
+      } else if (p.ganador_id && p.ganador_id === p.atleta2_id) {
+        f.querySelector('[name="ganador"][value="a2"]').checked = true;
+      } else {
+        f.querySelector('[name="ganador"][value="empate"]').checked = true;
+      }
+      // Método
+      f.querySelector('[name="metodo"]').value = p.metodo_finalizacion || "";
+      // Round
+      f.querySelector('[name="round"]').value = p.round_finalizacion || state.currentRound || 1;
+      // Tiempo (extraer MM:SS si el storage tiene un Date)
+      var tFmt = formatTiempoFinalizacion_(p.tiempo_finalizacion);
+      f.querySelector('[name="tiempo"]').value = tFmt.clean || "";
+      // Notas
+      f.querySelector('[name="notas"]').value = p.notas || "";
+
+      document.getElementById("resumen-puntaje").innerHTML =
+        '<strong style="color:var(--accent-amber);">⚠ Editando resultado existente.</strong> ' +
+        "Si cambias al ganador, las peleas siguientes del bracket pueden quedar inconsistentes y necesitar actualización manual.";
+    } else {
+      // ====== Modo creación: smart defaults basados en el state actual ======
+      var s1 = totalScore("a1");
+      var s2 = totalScore("a2");
+      var resumen = "Puntaje: " + a1Name + " " + s1 + " — " + s2 + " " + a2Name;
+      var advs = "Adv " + totalAdv("a1") + "/" + totalAdv("a2") +
+        "  ·  Faltas " + totalFaltas("a1") + "/" + totalFaltas("a2");
+      document.getElementById("resumen-puntaje").textContent = resumen + "  ·  " + advs;
+
+      if (s1 > s2 && p.atleta1_id) {
+        f.querySelector('[name="ganador"][value="a1"]').checked = true;
+      } else if (s2 > s1 && p.atleta2_id) {
+        f.querySelector('[name="ganador"][value="a2"]').checked = true;
+      }
+
+      f.querySelector('[name="round"]').value = state.currentRound || 1;
+
+      var t = state.tiempoConfig;
+      if (t) {
+        var elapsed = state.isResting
+          ? t.segundosPorRound
+          : Math.max(0, t.segundosPorRound - state.secondsRemaining);
+        f.querySelector('[name="tiempo"]').value = formatTime_(elapsed);
+      }
     }
 
-    // Default round = round actual
-    f.querySelector('[name="round"]').value = state.currentRound || 1;
     f.querySelector('[name="round"]').max = state.tiempoConfig
       ? state.tiempoConfig.rounds
       : 1;
-
-    // Default tiempo = (round duration - remaining) o full duration si pelea terminó
-    var t = state.tiempoConfig;
-    if (t) {
-      var elapsed = state.isResting
-        ? t.segundosPorRound
-        : Math.max(0, t.segundosPorRound - state.secondsRemaining);
-      f.querySelector('[name="tiempo"]').value = formatTime_(elapsed);
-    }
   }
 
   function showFinalizeOverlay_() {
@@ -1154,6 +1195,8 @@
     finalizeRefs.cancelBtn.disabled = true;
     finalizeRefs.saveBtn.textContent = "Guardando…";
 
+    var wasEdit = finalizeMode === "edit";
+
     try {
       await root.api.post("peleas.update", payload);
       // T21 — pelea finalizada, ya no necesitamos el snapshot
@@ -1172,14 +1215,22 @@
         }
       } catch (e) { /* ignore */ }
 
-      // Redirigir al bracket para que pueda elegir la siguiente pelea
-      var bracketId = (state.pelea.bracket && state.pelea.bracket.id) || state.pelea.bracket_id;
-      if (bracketId) {
-        window.location.href = "./bracket.html?id=" + encodeURIComponent(bracketId);
-      } else {
-        // Sin bracket conocido, recargar el scoreboard para mostrar finalización
+      if (wasEdit) {
+        // Modo edición: NO redirigir. El operador ya estaba mirando el
+        // resultado final, queremos quedarnos en la misma pelea con el
+        // banner actualizado. Cerramos el modal y recargamos in-place.
         closeFinalizeModal_();
         load();
+      } else {
+        // Modo creación: redirigir al bracket para elegir la siguiente pelea
+        var bracketId = (state.pelea.bracket && state.pelea.bracket.id) || state.pelea.bracket_id;
+        if (bracketId) {
+          window.location.href = "./bracket.html?id=" + encodeURIComponent(bracketId);
+        } else {
+          // Sin bracket conocido, recargar el scoreboard para mostrar finalización
+          closeFinalizeModal_();
+          load();
+        }
       }
     } catch (err) {
       showFinalizeBannerError_(err && err.message ? err.message : String(err));
@@ -1187,7 +1238,9 @@
       finalizeSaving = false;
       finalizeRefs.saveBtn.disabled = false;
       finalizeRefs.cancelBtn.disabled = false;
-      finalizeRefs.saveBtn.textContent = "Guardar y volver al bracket";
+      finalizeRefs.saveBtn.textContent = wasEdit
+        ? "Guardar cambios"
+        : "Guardar y volver al bracket";
     }
   }
 
