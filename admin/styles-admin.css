@@ -252,6 +252,38 @@ textarea {
   font-style: italic;
 }
 
+/* Botón rojo de acción destructiva */
+.btn-danger {
+  background: transparent;
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.42);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.72);
+  color: #ff8a8a;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-icon-only {
+  padding: 4px 8px;
+  min-width: 28px;
+}
+
+/* Para que los dos botones del row de atletas queden juntos */
+td.actions {
+  white-space: nowrap;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 /* ---------- Main ---------- */
 
 .admin-main {

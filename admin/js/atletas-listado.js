@@ -61,24 +61,67 @@
         window.AtletaForm.open({ onSaved: loadAtletas });
       });
     }
-    // Delegación de eventos: el botón Editar en cada fila.
+    // Delegación de eventos: botones Editar y Eliminar de cada fila
     if (els.list) {
       els.list.addEventListener("click", function (e) {
-        var btn = e.target.closest('[data-action="editar"]');
-        if (!btn) return;
-        var tr = btn.closest("tr");
+        var actionBtn = e.target.closest("[data-action]");
+        if (!actionBtn) return;
+        var action = actionBtn.dataset.action;
+        var tr = actionBtn.closest("tr");
         var id = tr && tr.dataset.id;
-        if (!id || !window.AtletaForm) return;
-        var atleta = state.atletas.find(function (a) {
-          return a.id === id;
-        });
+        if (!id) return;
+        var atleta = state.atletas.find(function (a) { return a.id === id; });
         if (!atleta) return;
-        window.AtletaForm.open({
-          atleta: atleta,
-          onSaved: loadAtletas,
-          onArchived: loadAtletas,
-        });
+
+        if (action === "editar") {
+          if (!window.AtletaForm) return;
+          window.AtletaForm.open({
+            atleta: atleta,
+            onSaved: loadAtletas,
+            onArchived: loadAtletas,
+          });
+        } else if (action === "eliminar") {
+          confirmDeleteAtleta(atleta);
+        }
       });
+    }
+  }
+
+  /**
+   * Intentar borrar atleta permanentemente. Si el backend reporta que tiene
+   * historial (inscripciones o peleas), ofrece archivar en su lugar.
+   */
+  async function confirmDeleteAtleta(atleta) {
+    var name = atleta.nombre_completo || atleta.id;
+    var ok = window.confirm(
+      "¿Eliminar a " + name + " permanentemente?\n\n" +
+      "Esta acción solo funciona si el atleta NO tiene historial " +
+      "(inscripciones o peleas). Si lo tiene, se ofrecerá archivar en su lugar.",
+    );
+    if (!ok) return;
+
+    try {
+      await window.api.post("atletas.delete", { id: atleta.id });
+      loadAtletas();
+    } catch (err) {
+      var msg = (err && err.message) ? err.message : String(err);
+      // Si el error es por historial, ofrecer archivar
+      if (/historial|no se puede borrar/i.test(msg)) {
+        var archive = window.confirm(
+          msg + "\n\n¿Archivar a " + name + " en su lugar? " +
+          "(Dejará de aparecer en el listado pero su historial se preserva.)",
+        );
+        if (archive) {
+          try {
+            await window.api.post("atletas.archive", { id: atleta.id });
+            loadAtletas();
+          } catch (e2) {
+            alert("Error al archivar: " + (e2.message || e2));
+          }
+        }
+      } else {
+        alert("Error al eliminar: " + msg);
+      }
     }
   }
 
@@ -237,7 +280,10 @@
       "<td>" + nivelBadge(a.nivel) + "</td>" +
       "<td class='num'>" + (a.peso_referencia_kg != null ? a.peso_referencia_kg + " kg" : "—") + "</td>" +
       "<td>" + escapeHtml(a.academia || "") + "</td>" +
-      "<td class='actions'><button class='btn btn-ghost btn-sm' data-action='editar' title='Editar atleta'>Editar</button></td>";
+      "<td class='actions'>" +
+      "<button class='btn btn-ghost btn-sm' data-action='editar' title='Editar atleta'>Editar</button>" +
+      "<button class='btn btn-danger btn-sm btn-icon-only' data-action='eliminar' title='Eliminar atleta'>🗑</button>" +
+      "</td>";
 
     return tr;
   }

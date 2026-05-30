@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.8.0",
+  version: "0.9.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -289,6 +289,8 @@ function routeAction_(action, payload) {
       return handleAtletasUpdate_(payload);
     case "atletas.archive":
       return handleAtletasArchive_(payload);
+    case "atletas.delete":
+      return handleAtletasDelete_(payload);
 
     case "eventos.list":
       return handleEventosList_(payload);
@@ -300,6 +302,8 @@ function routeAction_(action, payload) {
       return handleEventosUpdate_(payload);
     case "eventos.setestatus":
       return handleEventosSetEstatus_(payload);
+    case "eventos.delete":
+      return handleEventosDelete_(payload);
 
     case "inscripciones.list":
       return handleInscripcionesList_(payload);
@@ -2128,4 +2132,148 @@ function sugerirNivelGs_(aniosPractica) {
   if (n < 2) return "Principiante";
   if (n < 4) return "Intermedio";
   return "Avanzado";
+}
+
+/* ============================================================
+ * Delete con cascade (v0.9.0)
+ * ============================================================ */
+
+/**
+ * Borra permanentemente un evento + todas sus inscripciones, brackets y peleas.
+ * Acción irreversible (excepto por la revisión history de Google Sheets).
+ *
+ * Payload: { id: "evt_XXX" }
+ * Devuelve: { ok, id, deleted: { evento, inscripciones, brackets, peleas } }
+ */
+function handleEventosDelete_(payload) {
+  requireFields_(payload, ["id"]);
+  const eventoId = String(payload.id);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  const { rowIndex: eventoRow } = findRowById_(
+    spreadsheet,
+    EVENTOS_TABS.eventos,
+    eventoId,
+  );
+  if (!eventoRow) throw new Error("Evento no encontrado: " + eventoId);
+
+  // Contar para reportar en la respuesta
+  const counts = { evento: 0, inscripciones: 0, brackets: 0, peleas: 0 };
+
+  // 1. Borrar inscripciones del evento
+  const inscSheet = spreadsheet.getSheetByName(EVENTOS_TABS.inscripciones);
+  const inscLast = inscSheet.getLastRow();
+  if (inscLast >= 2) {
+    const inscRows = inscSheet
+      .getRange(2, 1, inscLast - 1, inscSheet.getLastColumn())
+      .getValues();
+    const inscHeaders = inscSheet
+      .getRange(1, 1, 1, inscSheet.getLastColumn())
+      .getValues()[0];
+    const eventoIdCol = inscHeaders.indexOf("Evento ID");
+    const rowsToDelete = [];
+    inscRows.forEach((r, idx) => {
+      if (String(r[eventoIdCol]) === eventoId) {
+        rowsToDelete.push(idx + 2);
+      }
+    });
+    counts.inscripciones = rowsToDelete.length;
+    rowsToDelete.reverse().forEach((rIdx) => {
+      inscSheet.deleteRow(rIdx);
+    });
+  }
+
+  // 2. Contar brackets + peleas antes de borrarlos
+  const brackets = readRows_(spreadsheet, EVENTOS_TABS.brackets)
+    .map(rowToBracket_)
+    .filter((b) => b.evento_id === eventoId);
+  counts.brackets = brackets.length;
+
+  if (brackets.length > 0) {
+    const bracketIds = brackets.map((b) => b.id);
+    const pelSheet = spreadsheet.getSheetByName(EVENTOS_TABS.peleas);
+    const pelLast = pelSheet.getLastRow();
+    if (pelLast >= 2) {
+      const pelHeaders = pelSheet
+        .getRange(1, 1, 1, pelSheet.getLastColumn())
+        .getValues()[0];
+      const bracketIdCol = pelHeaders.indexOf("Bracket ID");
+      const pelRows = pelSheet
+        .getRange(2, 1, pelLast - 1, pelSheet.getLastColumn())
+        .getValues();
+      counts.peleas = pelRows.filter((r) => {
+        return bracketIds.indexOf(String(r[bracketIdCol])) >= 0;
+      }).length;
+    }
+    // Reuso del helper existente — borra brackets + peleas en cascade
+    deleteBracketsForEvento_(spreadsheet, eventoId);
+  }
+
+  // 3. Borrar el evento mismo. Re-lookup en caso de que el rowIndex haya
+  // cambiado por las eliminaciones previas (no debería, pero defensivo).
+  const { rowIndex: finalRow } = findRowById_(
+    spreadsheet,
+    EVENTOS_TABS.eventos,
+    eventoId,
+  );
+  if (finalRow) {
+    const eventoSheet = spreadsheet.getSheetByName(EVENTOS_TABS.eventos);
+    eventoSheet.deleteRow(finalRow);
+    counts.evento = 1;
+  }
+
+  return { ok: true, id: eventoId, deleted: counts };
+}
+
+/**
+ * Borra permanentemente un atleta SOLO si no tiene historial (no aparece
+ * en inscripciones ni en peleas como atleta1, atleta2 o ganador).
+ * Si tiene historial, lanza un error pidiéndole al usuario que archive.
+ *
+ * Payload: { id: "atl_XXX" }
+ * Devuelve: { ok, id, deleted: true }
+ * Throws: si el atleta tiene historial.
+ */
+function handleAtletasDelete_(payload) {
+  requireFields_(payload, ["id"]);
+  const atletaId = String(payload.id);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  const { rowIndex } = findRowById_(
+    spreadsheet,
+    EVENTOS_TABS.atletas,
+    atletaId,
+  );
+  if (!rowIndex) throw new Error("Atleta no encontrado: " + atletaId);
+
+  // Check referencias en inscripciones
+  const inscRows = readRows_(spreadsheet, EVENTOS_TABS.inscripciones);
+  const inscRefs = inscRows.filter((r) => {
+    return String(r["Atleta ID"] || "") === atletaId;
+  });
+
+  // Check referencias en peleas (como atleta1, atleta2 o ganador)
+  const pelRows = readRows_(spreadsheet, EVENTOS_TABS.peleas);
+  const pelRefs = pelRows.filter((r) => {
+    return (
+      String(r["Atleta 1 ID"] || "") === atletaId ||
+      String(r["Atleta 2 ID"] || "") === atletaId ||
+      String(r["Ganador ID"] || "") === atletaId
+    );
+  });
+
+  if (inscRefs.length > 0 || pelRefs.length > 0) {
+    throw new Error(
+      "El atleta tiene historial (" +
+      inscRefs.length + " inscripción/es, " +
+      pelRefs.length + " pelea/s) y no se puede borrar permanentemente. " +
+      "Archívalo en su lugar para preservar el historial.",
+    );
+  }
+
+  // Sin historial — borrar la fila
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.atletas);
+  sheet.deleteRow(rowIndex);
+
+  return { ok: true, id: atletaId, deleted: true };
 }
