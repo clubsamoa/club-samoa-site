@@ -1289,3 +1289,243 @@ textarea {
   }
 }
 
+/* =============================================================
+   Detalle de evento — tabs y paneles (T11+)
+   ============================================================= */
+
+.evento-tab-panels {
+  margin-top: 20px;
+}
+
+.evento-tab-panel {
+  display: none;
+}
+
+.evento-tab-panel.is-active {
+  display: block;
+}
+
+.evento-tab[disabled] {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* Estatus select inline en el card de detalle */
+.estatus-select {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 22px 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 10px) calc(50% - 1px),
+    calc(100% - 6px) calc(50% - 1px);
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.estatus-select:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+}
+
+/* =============================================================
+   Tab Inscripciones (T11)
+   ============================================================= */
+
+.inscripciones-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.categoria-cell {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--text);
+  white-space: nowrap;
+  display: inline-block;
+}
+
+/* Estatus pills para inscripciones */
+
+.estatus-pendiente_pesaje {
+  background: rgba(220, 165, 70, 0.18);
+  color: #f0c89a;
+}
+
+.estatus-aprobado {
+  background: rgba(86, 160, 86, 0.22);
+  color: #a8d9a8;
+}
+
+.estatus-rechazado {
+  background: rgba(244, 7, 6, 0.22);
+  color: #ffb0b0;
+}
+
+/* =============================================================
+   Modal multi-select (InscripcionesForm)
+   ============================================================= */
+
+.modal-dialog-wide {
+  width: min(720px, 100%);
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.multiselect-body {
+  flex: 1 1 auto;
+}
+
+.multiselect-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.multiselect-search {
+  flex: 1;
+  padding: 9px 12px;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.multiselect-search:focus {
+  outline: none;
+  border-color: var(--brand-deep);
+}
+
+.multiselect-search::placeholder {
+  color: var(--muted-2);
+}
+
+.multiselect-bulk {
+  display: flex;
+  gap: 4px;
+}
+
+.multiselect-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  max-height: 50vh;
+  min-height: 200px;
+  padding: 4px 0;
+}
+
+.multiselect-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 22px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.1s;
+}
+
+.multiselect-row:last-child {
+  border-bottom: 0;
+}
+
+.multiselect-row:hover {
+  background: rgba(247, 242, 241, 0.04);
+}
+
+.multiselect-row.is-selected {
+  background: rgba(244, 7, 6, 0.08);
+}
+
+.multiselect-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--brand);
+}
+
+.multiselect-row-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.multiselect-row-info strong {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.multiselect-row-sub {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.multiselect-row-badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+}
+
+.multiselect-empty {
+  padding: 40px 22px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.multiselect-empty p {
+  margin: 0 0 6px;
+  font-weight: 500;
+}
+
+.multiselect-empty small {
+  color: var(--muted-2);
+  font-size: 12px;
+}
+
+.multiselect-count {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .multiselect-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .multiselect-row-badges {
+    display: none;
+  }
+}
+
