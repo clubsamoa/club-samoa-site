@@ -8,86 +8,36 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Oswald:wght@600;700&family=Teko:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles-admin.css" />
   </head>
-  <body class="bracket-page">
-    <header class="bracket-page-header">
-      <div class="bracket-page-brand">
+  <body class="scoreboard-page">
+    <header class="scoreboard-header">
+      <div class="scoreboard-brand">
         <img src="../images/logo-white.png" alt="Club Samoa" />
-        <div>
-          <strong id="header-title">Scoreboard</strong>
-          <span id="header-meta">Cargando…</span>
+        <div class="scoreboard-brand-text">
+          <strong id="scoreboard-title">Scoreboard</strong>
+          <span id="scoreboard-meta">Cargando…</span>
         </div>
       </div>
-      <div class="bracket-page-actions">
-        <a class="btn btn-ghost btn-sm" href="javascript:history.back()">← Volver</a>
+      <div class="scoreboard-header-actions">
+        <a class="btn btn-ghost btn-sm" href="javascript:history.back()" id="btn-back">← Volver</a>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh" title="Refrescar datos">⟳</button>
+        <button class="btn btn-primary btn-sm" id="btn-fullscreen" title="Pantalla completa (Esc para salir)">⛶ Pantalla completa</button>
       </div>
     </header>
 
-    <main class="bracket-page-main">
-      <div id="scoreboard-content" style="padding: 60px 24px; text-align: center;">
-        <div class="placeholder" style="max-width: 640px; margin: 0 auto;">
-          <span class="placeholder-tag">Coming soon · Tareas 18–21</span>
-          <h2>Scoreboard en vivo</h2>
-          <p id="scoreboard-desc">
-            Aquí vas a tener el timer auto-configurado por categoría, captura de
-            puntos, advertencias, faltas y registro de finalización (KO,
-            sometimiento, decisión, etc.). Por ahora muestra solo los datos
-            básicos de la pelea.
-          </p>
-          <ul class="placeholder-list">
-            <li>T18 — Timer con configuración automática por categoría</li>
-            <li>T19 — Puntuación, advertencias y faltas</li>
-            <li>T20 — Captura de resultado y cierre de pelea</li>
-            <li>T21 — Autosave en localStorage + modo proyección</li>
-          </ul>
-        </div>
-
-        <div id="pelea-detalle" class="card" style="max-width: 640px; margin: 24px auto 0; text-align: left;">
-          <div class="loading-message">Cargando pelea...</div>
-        </div>
+    <main class="scoreboard-main" id="scoreboard-main">
+      <div class="loading-message" style="text-align:center; padding:80px 20px;">
+        Cargando pelea…
       </div>
     </main>
 
     <script src="../registration-config.js"></script>
     <script src="./js/api.js"></script>
-    <script>
-      (function () {
-        "use strict";
-
-        var params = new URLSearchParams(location.search);
-        var peleaId = params.get("pelea_id");
-        var detail = document.getElementById("pelea-detalle");
-        var headerTitle = document.getElementById("header-title");
-        var headerMeta = document.getElementById("header-meta");
-
-        if (!peleaId) {
-          detail.innerHTML = '<p style="color:#ff9090">Falta el parámetro <code>?pelea_id=pel_XXX</code>.</p>';
-          headerMeta.textContent = "Sin pelea";
-          return;
-        }
-
-        // El backend no tiene un peleas.get, pero podemos buscar via brackets.list/get.
-        // Por simplicidad, mostramos el ID y un placeholder. T18+ implementa el fetch real.
-        headerTitle.textContent = "Pelea " + peleaId;
-        headerMeta.textContent = "Detalle pendiente · ver T18";
-
-        detail.innerHTML =
-          '<h3 style="margin: 0 0 12px; font-family: Anton, Oswald, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; font-size: 16px;">Pelea</h3>' +
-          '<dl class="evento-detalle-dl">' +
-          '<div class="evento-detalle-row"><dt>ID</dt><dd>' + escapeHtml(peleaId) + '</dd></div>' +
-          '<div class="evento-detalle-row"><dt>Estado</dt><dd>Esperando implementación de T18–T21</dd></div>' +
-          '</dl>';
-
-        function escapeHtml(v) {
-          return String(v == null ? "" : v)
-            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-        }
-      })();
-    </script>
+    <script src="./js/reglamento.js"></script>
+    <script src="./js/scoreboard.js"></script>
   </body>
 </html>
