@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.2.0",
+  version: "0.3.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -246,6 +246,8 @@ function doPost(e) {
  *   - ping, setup (tarea 01)
  *   - atletas.list, atletas.get, atletas.create,
  *     atletas.update, atletas.archive (tarea 05)
+ *   - eventos.list, eventos.get, eventos.create,
+ *     eventos.update, eventos.setEstatus (tarea 08)
  */
 function routeAction_(action, payload) {
   switch (action) {
@@ -277,6 +279,17 @@ function routeAction_(action, payload) {
       return handleAtletasUpdate_(payload);
     case "atletas.archive":
       return handleAtletasArchive_(payload);
+
+    case "eventos.list":
+      return handleEventosList_(payload);
+    case "eventos.get":
+      return handleEventosGet_(payload);
+    case "eventos.create":
+      return handleEventosCreate_(payload);
+    case "eventos.update":
+      return handleEventosUpdate_(payload);
+    case "eventos.setestatus":
+      return handleEventosSetEstatus_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -690,4 +703,170 @@ function handleAtletasArchive_(payload) {
   sheet.getRange(rowIndex, col).setValue(false);
 
   return { ok: true, id: payload.id, activo: false };
+}
+
+/* ============================================================
+ * Eventos — definición de campos y mappers
+ * ============================================================ */
+
+const EVENTOS_FIELDS = [
+  { key: "id",        header: "ID",       type: "string",   system: true },
+  { key: "nombre",    header: "Nombre",   type: "string",   required: true, editable: true },
+  { key: "fecha",     header: "Fecha",    type: "date",     required: true, editable: true },
+  { key: "sede",      header: "Sede",     type: "string",   required: true, editable: true },
+  { key: "estatus",   header: "Estatus",  type: "enum",     values: ESTATUS_EVENTO, system: true },
+  { key: "creado_en", header: "Creado en", type: "datetime", system: true },
+];
+
+function rowToEvento_(row) {
+  const out = {};
+  EVENTOS_FIELDS.forEach((field) => {
+    out[field.key] = normalizeOutput_(row[field.header], field.type);
+  });
+  return out;
+}
+
+function eventoToRow_(evento) {
+  const row = {};
+  EVENTOS_FIELDS.forEach((field) => {
+    if (!(field.key in evento)) return;
+    row[field.header] = normalizeInput_(evento[field.key], field.type);
+  });
+  return row;
+}
+
+/**
+ * Validación específica de eventos:
+ *  - nombre, fecha, sede requeridos.
+ *  - fecha puede ser pasada o futura (eventos pueden ya haber ocurrido).
+ *  - fecha debe estar en rango razonable (1900–2100).
+ */
+function validateEvento_(payload, opts) {
+  const isUpdate = opts && opts.isUpdate;
+  EVENTOS_FIELDS.forEach((field) => {
+    if (field.system) return;
+    const present = field.key in payload;
+
+    if (!isUpdate && field.required && !present) {
+      throw new Error("Falta campo requerido: " + field.key);
+    }
+    if (!present) return;
+
+    const v = payload[field.key];
+    const emptyish = v === null || v === undefined || String(v).trim() === "";
+    if (field.required && emptyish) {
+      throw new Error("Campo requerido vacío: " + field.key);
+    }
+    if (!field.required && emptyish) return;
+
+    if (field.type === "date") {
+      const parsed = normalizeInput_(v, "date");
+      if (!(parsed instanceof Date) || isNaN(parsed.getTime())) {
+        throw new Error(field.key + " no es una fecha válida (use YYYY-MM-DD)");
+      }
+      const year = parsed.getFullYear();
+      if (year < 1900 || year > 2100) {
+        throw new Error(field.key + " fuera de rango razonable (1900–2100)");
+      }
+    }
+  });
+}
+
+/* ============================================================
+ * Eventos — action handlers
+ * ============================================================ */
+
+function handleEventosList_(payload) {
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const rows = readRows_(spreadsheet, EVENTOS_TABS.eventos);
+  let eventos = rows.map(rowToEvento_);
+
+  // Filtro opcional por estatus
+  const estatus = value_(payload, "estatus");
+  if (estatus) {
+    eventos = eventos.filter((e) => e.estatus === estatus);
+  }
+
+  // Orden por fecha descendente (más reciente arriba) por defecto
+  eventos.sort((a, b) => {
+    return String(b.fecha || "").localeCompare(String(a.fecha || ""));
+  });
+
+  return { ok: true, count: eventos.length, eventos: eventos };
+}
+
+function handleEventosGet_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, payload.id);
+  if (!row) throw new Error("Evento no encontrado: " + payload.id);
+  return { ok: true, evento: rowToEvento_(row) };
+}
+
+function handleEventosCreate_(payload) {
+  validateEvento_(payload, { isUpdate: false });
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const id = nextId_(spreadsheet, EVENTOS_TABS.eventos, "evt");
+
+  const evento = {
+    id: id,
+    nombre: value_(payload, "nombre"),
+    fecha: payload.fecha,
+    sede: value_(payload, "sede"),
+    estatus: "borrador",
+    creado_en: new Date(),
+  };
+
+  appendRow_(spreadsheet, EVENTOS_TABS.eventos, eventoToRow_(evento));
+
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, id);
+  return { ok: true, evento: rowToEvento_(row) };
+}
+
+function handleEventosUpdate_(payload) {
+  requireFields_(payload, ["id"]);
+  validateEvento_(payload, { isUpdate: true });
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, payload.id);
+  if (!row) throw new Error("Evento no encontrado: " + payload.id);
+
+  const next = {};
+  EVENTOS_FIELDS.forEach((field) => {
+    if (field.system) {
+      next[field.header] = row[field.header];
+      return;
+    }
+    if (field.editable && field.key in payload) {
+      next[field.header] = normalizeInput_(payload[field.key], field.type);
+    } else {
+      next[field.header] = row[field.header];
+    }
+  });
+
+  writeRow_(spreadsheet, EVENTOS_TABS.eventos, rowIndex, next);
+
+  const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, payload.id);
+  return { ok: true, evento: rowToEvento_(finalRow) };
+}
+
+function handleEventosSetEstatus_(payload) {
+  requireFields_(payload, ["id", "estatus"]);
+  const estatus = String(payload.estatus).toLowerCase().trim();
+  if (ESTATUS_EVENTO.indexOf(estatus) < 0) {
+    throw new Error(
+      "estatus debe ser uno de [" + ESTATUS_EVENTO.join(", ") + "], recibido: " + payload.estatus,
+    );
+  }
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, payload.id);
+  if (!row) throw new Error("Evento no encontrado: " + payload.id);
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.eventos);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const col = headers.indexOf("Estatus") + 1;
+  if (col <= 0) throw new Error("Columna 'Estatus' no encontrada en Eventos.");
+  sheet.getRange(rowIndex, col).setValue(estatus);
+
+  return { ok: true, id: payload.id, estatus: estatus };
 }

@@ -49,6 +49,12 @@
       icon: "+",
       href: "./js/atletas-seed.html",
     },
+    {
+      key: "tools-eventos-api",
+      label: "Tests · eventos API",
+      icon: "·",
+      href: "./js/eventos-api.test.html",
+    },
   ];
 
   function init() {
