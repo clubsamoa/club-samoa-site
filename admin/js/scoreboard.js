@@ -1162,13 +1162,22 @@
   }
 
   /**
-   * T25 — Busca la siguiente pelea pendiente en el mismo bracket (con ambos
-   * atletas asignados y sin ganador), ordenada por ronda y número de pelea.
+   * T25 — Busca la siguiente pelea pendiente en TODO el evento (cruzando
+   * brackets), con ambos atletas asignados y sin ganador.
+   *
+   * Estrategia de orden (Smoothcomp-style):
+   *   1. ronda_idx ASC (todas las R1 primero, luego R2, luego finales).
+   *      Esto da rest natural a los atletas entre rondas.
+   *   2. orden del bracket en la lista del evento (para que rota mats).
+   *   3. numero_pelea ASC dentro de la misma ronda + bracket.
+   *
+   * Fallback: si por alguna razón no podemos obtener el evento_id, cae al
+   * modo "solo este bracket".
    *
    * @param {Object} opts
    * @param {boolean} [opts.alertIfNone] — si true, muestra alert cuando no hay más.
-   *                                       Si false, no hace nada cuando no hay (caller decide).
-   * @param {boolean} [opts.fallbackToBracket] — si true y no hay próxima, navega a bracket.html.
+   * @param {boolean} [opts.fallbackToBracket] — si true y no hay próxima, navega
+   *   al resumen del evento (o al bracket actual como segundo fallback).
    * @returns {Promise<boolean>} — true si se navegó a la siguiente, false en otro caso.
    */
   async function findAndGoToNextPending_(opts) {
@@ -1176,15 +1185,57 @@
     var bracketId =
       (state.pelea && state.pelea.bracket && state.pelea.bracket.id) ||
       (state.pelea && state.pelea.bracket_id);
-    if (!bracketId) {
-      if (opts.alertIfNone) alert("No se encontró el bracket de esta pelea.");
+    var eventoId =
+      (state.pelea && state.pelea.bracket && state.pelea.bracket.evento_id) ||
+      (state.pelea && state.pelea.evento_id);
+
+    if (!bracketId && !eventoId) {
+      if (opts.alertIfNone) {
+        alert("No se encontró el evento de esta pelea.");
+      }
       return false;
     }
+
     try {
-      var res = await root.api.get("brackets.get", { id: bracketId });
-      var bracket = res && res.bracket;
-      var peleas = (bracket && bracket.peleas) || [];
-      var pending = peleas.filter(function (p) {
+      var allPeleas = [];
+
+      if (eventoId) {
+        // Modo evento completo: traer todos los brackets en paralelo
+        var resList = await root.api.get("brackets.list", { evento_id: eventoId });
+        var bracketsList = (resList && resList.brackets) || [];
+        if (bracketsList.length === 0) {
+          // No hay brackets — caso raro
+          return handleNoMorePending_(opts, eventoId, bracketId);
+        }
+
+        var detailPromises = bracketsList.map(function (b) {
+          return root.api.get("brackets.get", { id: b.id });
+        });
+        var details = await Promise.all(detailPromises);
+
+        details.forEach(function (d, idx) {
+          var bracket = d && d.bracket;
+          if (!bracket || !bracket.peleas) return;
+          bracket.peleas.forEach(function (p) {
+            allPeleas.push({
+              pelea: p,
+              bracketOrder: idx,
+              bracketId: bracket.id,
+            });
+          });
+        });
+      } else {
+        // Fallback: solo el bracket actual
+        var resBracket = await root.api.get("brackets.get", { id: bracketId });
+        var bracketOne = resBracket && resBracket.bracket;
+        var peleasOne = (bracketOne && bracketOne.peleas) || [];
+        peleasOne.forEach(function (p) {
+          allPeleas.push({ pelea: p, bracketOrder: 0, bracketId: bracketId });
+        });
+      }
+
+      var pending = allPeleas.filter(function (item) {
+        var p = item.pelea;
         return (
           p.id !== state.peleaId &&
           p.atleta1_id &&
@@ -1193,33 +1244,29 @@
           !p.bye
         );
       });
+
+      // Orden: ronda_idx ASC, bracketOrder ASC, numero_pelea ASC
       pending.sort(function (a, b) {
-        var ra = Number(a.ronda_idx) || 0;
-        var rb = Number(b.ronda_idx) || 0;
+        var ra = Number(a.pelea.ronda_idx) || 0;
+        var rb = Number(b.pelea.ronda_idx) || 0;
         if (ra !== rb) return ra - rb;
-        return (Number(a.numero_pelea) || 0) - (Number(b.numero_pelea) || 0);
+        if (a.bracketOrder !== b.bracketOrder) {
+          return a.bracketOrder - b.bracketOrder;
+        }
+        return (Number(a.pelea.numero_pelea) || 0) - (Number(b.pelea.numero_pelea) || 0);
       });
+
       if (pending.length > 0) {
         window.location.href =
-          "./scoreboard.html?pelea_id=" + encodeURIComponent(pending[0].id);
+          "./scoreboard.html?pelea_id=" + encodeURIComponent(pending[0].pelea.id);
         return true;
       }
-      // No hay pendientes
-      if (opts.fallbackToBracket) {
-        window.location.href =
-          "./bracket.html?id=" + encodeURIComponent(bracketId);
-        return true;
-      }
-      if (opts.alertIfNone) {
-        alert(
-          "🎉 ¡Todas las peleas de este bracket ya tienen ganador!\n\n" +
-          "Ve al resumen del evento para ver el podio.",
-        );
-      }
-      return false;
+
+      // No hay pendientes en todo el evento
+      return handleNoMorePending_(opts, eventoId, bracketId);
     } catch (err) {
       console.warn("[scoreboard] no se pudo buscar próxima pelea:", err);
-      if (opts.fallbackToBracket) {
+      if (opts.fallbackToBracket && bracketId) {
         window.location.href =
           "./bracket.html?id=" + encodeURIComponent(bracketId);
         return true;
@@ -1232,6 +1279,30 @@
       }
       return false;
     }
+  }
+
+  function handleNoMorePending_(opts, eventoId, bracketId) {
+    if (opts.fallbackToBracket) {
+      // Preferimos llevarte al resumen del evento, donde están todos los
+      // podios. Si no tenemos evento_id (raro), caemos al bracket actual.
+      if (eventoId) {
+        window.location.href =
+          "./evento.html?id=" + encodeURIComponent(eventoId) + "#resumen";
+        return true;
+      }
+      if (bracketId) {
+        window.location.href =
+          "./bracket.html?id=" + encodeURIComponent(bracketId);
+        return true;
+      }
+    }
+    if (opts.alertIfNone) {
+      alert(
+        "🎉 ¡Todas las peleas del evento ya tienen ganador!\n\n" +
+        "Ve al resumen del evento para ver los podios.",
+      );
+    }
+    return false;
   }
 
   async function submitFinalize_() {
