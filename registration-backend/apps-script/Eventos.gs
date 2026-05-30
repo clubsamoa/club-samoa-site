@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.6.0",
+  version: "0.7.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -326,6 +326,8 @@ function routeAction_(action, payload) {
       return handleBracketsDelete_(payload);
     case "peleas.update":
       return handlePeleasUpdate_(payload);
+    case "peleas.get":
+      return handlePeleasGet_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -1840,4 +1842,44 @@ function autoAdvanceGanador_(spreadsheet, bracketId, peleaNumero, nuevoGanador, 
       }
     }
   });
+}
+
+/**
+ * Devuelve una pelea con atletas enriquecidos + datos del bracket
+ * (incluyendo la categoría completa). Útil para el scoreboard que
+ * necesita saber división + nivel para configurar el timer.
+ */
+function handlePeleasGet_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.peleas, payload.id);
+  if (!row) throw new Error("Pelea no encontrada: " + payload.id);
+  const pelea = rowToPelea_(row);
+
+  // Enriquecer atletas
+  const atletasRows = readRows_(spreadsheet, EVENTOS_TABS.atletas);
+  const atletaById = {};
+  atletasRows.forEach((r) => {
+    const a = rowToAtleta_(r);
+    atletaById[a.id] = a;
+  });
+  pelea.atleta1 = pelea.atleta1_id ? atletaShort_(atletaById[pelea.atleta1_id]) : null;
+  pelea.atleta2 = pelea.atleta2_id ? atletaShort_(atletaById[pelea.atleta2_id]) : null;
+  pelea.ganador = pelea.ganador_id ? atletaShort_(atletaById[pelea.ganador_id]) : null;
+
+  // Datos del bracket (para conocer la categoría completa)
+  if (pelea.bracket_id) {
+    const { row: bRow } = findRowById_(spreadsheet, EVENTOS_TABS.brackets, pelea.bracket_id);
+    if (bRow) {
+      const bracket = rowToBracket_(bRow);
+      pelea.bracket = {
+        id: bracket.id,
+        categoria: bracket.categoria,
+        tipo_bracket: bracket.tipo_bracket,
+        evento_id: bracket.evento_id,
+      };
+    }
+  }
+
+  return { ok: true, pelea: pelea };
 }

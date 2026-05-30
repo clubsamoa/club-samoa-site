@@ -2417,3 +2417,486 @@ textarea {
   font-size: 13px;
 }
 
+/* =============================================================
+   Scoreboard (T18)
+   ============================================================= */
+
+.scoreboard-page {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.scoreboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.scoreboard-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.scoreboard-brand img {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.scoreboard-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.scoreboard-brand-text strong {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.scoreboard-brand-text span {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.scoreboard-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scoreboard-main {
+  padding: 32px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.scoreboard-finalized-banner {
+  background: rgba(86, 160, 86, 0.12);
+  border: 1px solid rgba(86, 160, 86, 0.35);
+  color: #a8d9a8;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+/* Atletas en versus */
+
+.scoreboard-atletas {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.scoreboard-atleta {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px 24px;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.scoreboard-atleta-left {
+  border-left: 4px solid #5a8ed0;
+}
+
+.scoreboard-atleta-right {
+  border-right: 4px solid var(--brand);
+}
+
+.scoreboard-atleta.is-winner {
+  border-color: rgba(86, 160, 86, 0.7);
+  background: rgba(86, 160, 86, 0.05);
+}
+
+.scoreboard-atleta-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  margin: 0 auto 12px;
+  background: linear-gradient(135deg, #2a1414, var(--button-red-deep));
+  color: #f7f2f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 22px;
+  font-family: "Anton", "Oswald", sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.scoreboard-atleta-left .scoreboard-atleta-avatar {
+  background: linear-gradient(135deg, #142840, #5a8ed0);
+}
+
+.scoreboard-atleta-name {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 22px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  line-height: 1.15;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.scoreboard-atleta-academia {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.scoreboard-atleta-winner-tag {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(86, 160, 86, 0.25);
+  color: #a8d9a8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.scoreboard-vs {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 28px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+/* Round info */
+
+.scoreboard-round-info {
+  text-align: center;
+  margin-bottom: 14px;
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.round-label {
+  color: var(--muted);
+}
+
+.round-label.is-rest {
+  color: var(--accent-amber);
+}
+
+.round-counter {
+  color: var(--text);
+}
+
+/* Timer GRANDE */
+
+.scoreboard-timer {
+  font-family: "Teko", "Oswald", sans-serif;
+  font-weight: 700;
+  font-size: 220px;
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+  text-align: center;
+  color: var(--text);
+  margin: 0 0 24px;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
+}
+
+.scoreboard-timer.is-low {
+  color: var(--brand);
+  animation: cs-timer-pulse 1s infinite;
+}
+
+.scoreboard-timer.is-resting {
+  color: var(--accent-amber);
+}
+
+.scoreboard-timer.is-zero {
+  color: var(--muted-2);
+}
+
+@keyframes cs-timer-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+/* Controles */
+
+.scoreboard-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.scoreboard-controls-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scoreboard-controls-adjust {
+  margin-top: 4px;
+}
+
+.btn-adjust {
+  background: var(--bg-soft);
+  border-color: var(--line);
+  color: var(--muted);
+  min-width: 110px;
+  padding: 9px 18px;
+  font-size: 14px;
+}
+
+.btn-adjust:hover:not(:disabled) {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.btn-control {
+  font-family: "Anton", "Oswald", sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 12px 24px;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.btn-control:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.btn-start {
+  background: var(--button-red);
+  border-color: var(--button-red-deep);
+  color: #fff;
+}
+
+.btn-start:hover:not(:disabled) {
+  background: var(--brand);
+}
+
+.btn-pause {
+  background: var(--panel-2);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.btn-reset, .btn-next {
+  background: var(--panel);
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.btn-reset:hover:not(:disabled),
+.btn-next:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--panel-2);
+}
+
+.scoreboard-coming-soon {
+  text-align: center;
+  color: var(--muted-2);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* Mobile */
+
+@media (max-width: 760px) {
+  .scoreboard-atletas {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .scoreboard-vs {
+    font-size: 20px;
+  }
+  .scoreboard-atleta-name {
+    font-size: 18px;
+  }
+  .scoreboard-timer {
+    font-size: 140px;
+  }
+  .btn-control {
+    min-width: 120px;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}
+
+/* =============================================================
+   Modo Fullscreen del scoreboard — todo cabe en una pantalla
+   ============================================================= */
+
+.scoreboard-page.is-fullscreen {
+  background: #000;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-header {
+  background: rgba(0, 0, 0, 0.85);
+  border-bottom-color: rgba(247, 242, 241, 0.08);
+  padding: 10px 22px;
+  flex-shrink: 0;
+}
+
+.scoreboard-page.is-fullscreen #btn-back,
+.scoreboard-page.is-fullscreen #btn-refresh {
+  display: none;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-brand-text strong {
+  font-size: 15px;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-brand-text span {
+  font-size: 11px;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5vh 2vw;
+  max-width: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-finalized-banner {
+  margin-bottom: 1vh;
+  font-size: 14px;
+  padding: 6px 14px;
+  flex-shrink: 0;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-atletas {
+  flex-shrink: 0;
+  gap: 2vw;
+  margin-bottom: 0;
+  max-height: 26vh;
+  align-items: stretch;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-atleta {
+  padding: 1.5vh 2vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-atleta-avatar {
+  width: clamp(54px, 9vh, 84px);
+  height: clamp(54px, 9vh, 84px);
+  font-size: clamp(20px, 3.5vh, 28px);
+  margin-bottom: 1vh;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-atleta-name {
+  font-size: clamp(20px, 3.6vh, 32px);
+  line-height: 1.1;
+  margin-bottom: 0.3vh;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-atleta-academia {
+  font-size: clamp(11px, 1.6vh, 15px);
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-atleta-winner-tag {
+  margin-top: 0.6vh;
+  font-size: 10px;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-vs {
+  font-size: clamp(22px, 4vh, 36px);
+  align-self: center;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-round-info {
+  font-size: clamp(16px, 2.6vh, 22px);
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-timer {
+  /* Clamp: mínimo 80px, ideal 32vh, máximo 24vw — lo que sea menor */
+  font-size: min(32vh, 24vw);
+  line-height: 0.85;
+  margin: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-controls {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  gap: 1vh;
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-controls-row {
+  gap: 1vw;
+}
+
+.scoreboard-page.is-fullscreen .btn-control {
+  font-size: clamp(13px, 1.8vh, 16px);
+  padding: clamp(8px, 1.5vh, 14px) clamp(14px, 2.5vw, 28px);
+  min-width: clamp(110px, 12vw, 160px);
+}
+
+.scoreboard-page.is-fullscreen .btn-adjust {
+  font-size: clamp(12px, 1.6vh, 14px);
+  padding: clamp(6px, 1.2vh, 10px) clamp(12px, 2vw, 22px);
+  min-width: clamp(90px, 10vw, 130px);
+}
+
+.scoreboard-page.is-fullscreen .scoreboard-coming-soon {
+  display: none;
+}
+
+/* Para pantallas muy verticales (ej. iPad portrait), permitir
+   que el timer crezca un poco más */
+@media (orientation: portrait) {
+  .scoreboard-page.is-fullscreen .scoreboard-timer {
+    font-size: min(28vh, 48vw);
+  }
+}
+
