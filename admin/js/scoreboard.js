@@ -58,6 +58,41 @@
     return broadcastChannel_;
   }
 
+  /**
+   * Publica la pelea actualmente activa para que una vista pública abierta
+   * con ?evento_id=X pueda re-engancharse sin tener que abrirla de nuevo.
+   * Escribe en localStorage (con storage event listener en el público) y en
+   * un BroadcastChannel evento-scoped (sync instantáneo).
+   */
+  var EVENT_CURRENT_PREFIX = "cs_admin_current_pelea_";
+  function publishCurrentPelea_() {
+    if (!state.pelea || !state.peleaId) return;
+    var eventoId =
+      (state.pelea.bracket && state.pelea.bracket.evento_id) ||
+      state.pelea.evento_id;
+    if (!eventoId) return;
+
+    var payload = {
+      pelea_id: state.peleaId,
+      evento_id: eventoId,
+      bracket_id:
+        (state.pelea.bracket && state.pelea.bracket.id) ||
+        state.pelea.bracket_id ||
+        "",
+      at: Date.now(),
+    };
+    try {
+      localStorage.setItem(EVENT_CURRENT_PREFIX + eventoId, JSON.stringify(payload));
+    } catch (e) { /* ignore */ }
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        var ch = new BroadcastChannel(EVENT_CURRENT_PREFIX + eventoId);
+        ch.postMessage(payload);
+        ch.close();
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   function saveState_() {
     var key = storageKey_();
     if (!key || !state.scoring || !state.tiempoConfig) return;
@@ -151,7 +186,16 @@
     if (btnPublic) {
       btnPublic.addEventListener("click", function () {
         if (!state.peleaId) return;
-        var url = "./scoreboard-public.html?pelea_id=" + encodeURIComponent(state.peleaId);
+        // Si ya cargamos la pelea y tenemos evento_id, abrir en modo
+        // "follow event" — la vista pública seguirá automáticamente al
+        // admin cuando cambies de pelea. Si todavía no cargó, caemos al
+        // modo per-pelea (legacy) y la nueva carga ya re-publicará.
+        var eventoId =
+          (state.pelea && state.pelea.bracket && state.pelea.bracket.evento_id) ||
+          (state.pelea && state.pelea.evento_id);
+        var url = eventoId
+          ? "./scoreboard-public.html?evento_id=" + encodeURIComponent(eventoId)
+          : "./scoreboard-public.html?pelea_id=" + encodeURIComponent(state.peleaId);
         var w = window.open(url, "cs_public_view", "noopener=no,width=1280,height=720");
         if (w) w.focus();
       });
@@ -242,6 +286,8 @@
       var res = await root.api.get("peleas.get", { id: state.peleaId });
       state.pelea = res.pelea;
       state.bracketCat = (state.pelea.bracket && state.pelea.bracket.categoria) || "";
+      // Publicar pelea activa para vistas públicas en modo evento
+      publishCurrentPelea_();
       configureTimer();
 
       // T21 — buscar estado guardado en localStorage
@@ -1045,14 +1091,15 @@
     dialog.querySelector(".modal-close").addEventListener("click", closeFinalizeModal_);
     dialog.querySelector(".btn-cancel").addEventListener("click", closeFinalizeModal_);
 
-    // Cuando el método es "No Contest", auto-marcar Empate / No contest.
+    // Cuando el método es "Empate" o "No Contest", auto-marcar el radio
+    // "Empate / No contest" (no hay ganador individual).
     // Para "Descalificación", "Abandono", "No Pasó Pesaje", "No Pasó Examen Médico"
     // y "No Se Presentó" hay un ganador implícito (el otro atleta), así que
     // dejamos que el operador lo seleccione manualmente.
     var metodoSel = form.querySelector('[name="metodo"]');
     metodoSel.addEventListener("change", function () {
       var v = metodoSel.value || "";
-      if (/^No Contest$/i.test(v)) {
+      if (/^(Empate|No Contest)$/i.test(v)) {
         var empateRadio = form.querySelector('[name="ganador"][value="empate"]');
         if (empateRadio) empateRadio.checked = true;
       }

@@ -29,66 +29,160 @@
         "use strict";
 
         var STORAGE_KEY_PREFIX = "cs_scoreboard_";
+        var EVENT_CURRENT_PREFIX = "cs_admin_current_pelea_";
+
         var params = new URLSearchParams(location.search);
-        var peleaId = params.get("pelea_id");
+        var eventoId = params.get("evento_id");
+        var initialPeleaId = params.get("pelea_id");
+
+        // peleaId puede cambiar a runtime cuando estamos en modo evento
+        var peleaId = initialPeleaId;
         var pelea = null;
         var liveState = null;
         var lastRenderKey = "";
         var lastBackendFetch = 0;
+        var bcPelea = null;  // canal per-pelea (se recrea al cambiar de pelea)
+        var bcEvento = null; // canal per-evento (se crea una vez)
 
         document.getElementById("btn-public-fs").addEventListener("click", toggleFullscreen);
         document.addEventListener("keydown", function (e) {
           if (e.code === "KeyF") toggleFullscreen();
         });
 
-        if (!peleaId) {
-          showError_("Falta ?pelea_id=pel_XXX en la URL.");
+        if (!peleaId && !eventoId) {
+          showError_("Falta ?pelea_id=pel_XXX o ?evento_id=evt_XXX en la URL.");
           return;
         }
 
-        // Cargar la pelea del backend (atletas, categoría, finalizada o no)
-        loadFromBackend_();
-
-        // 1) BroadcastChannel — comunicación instantánea entre tabs/ventanas
-        try {
-          if (typeof BroadcastChannel !== "undefined") {
-            var bc = new BroadcastChannel("cs_scoreboard_" + peleaId);
-            bc.onmessage = function (e) {
-              if (!e.data) return;
-              // Mensaje especial: pelea finalizada → re-fetch del backend
-              if (e.data.type === "finalized") {
-                liveState = null;
-                loadFromBackend_();
-                return;
-              }
-              liveState = e.data;
-              render_();
-            };
-          }
-        } catch (e) { /* ignore */ }
-
-        // 2) Escuchar storage events (fallback si BroadcastChannel no soportado)
+        // Storage listener único — dispatcheamos según el key
         window.addEventListener("storage", function (e) {
-          if (e.key === STORAGE_KEY_PREFIX + peleaId) {
+          if (!e.key) return;
+          // Cambio en el snapshot de la pelea actual
+          if (peleaId && e.key === STORAGE_KEY_PREFIX + peleaId) {
             try {
               liveState = e.newValue ? JSON.parse(e.newValue) : null;
               render_();
             } catch (err) {
-              console.warn("[public] parse storage:", err);
+              console.warn("[public] parse storage live:", err);
+            }
+            return;
+          }
+          // Cambio en la pelea activa del evento → switch
+          if (eventoId && e.key === EVENT_CURRENT_PREFIX + eventoId) {
+            try {
+              var data = e.newValue ? JSON.parse(e.newValue) : null;
+              if (data && data.pelea_id && data.pelea_id !== peleaId) {
+                switchToPelea_(data.pelea_id);
+              }
+            } catch (err) {
+              console.warn("[public] parse storage evento:", err);
             }
           }
         });
 
-        // 3) Polling cada 250ms como salvavidas final
+        // Polling como salvavidas final (250ms)
         setInterval(pollLocal_, 250);
 
-        // Re-fetch del backend cada 30s (por si la pelea fue finalizada / reabierta
-        // desde otro device, o por refresco de datos del atleta).
+        // Re-fetch del backend cada 30s (por si la pelea fue finalizada / reabierta).
         setInterval(function () {
-          if (Date.now() - lastBackendFetch > 25000) loadFromBackend_();
+          if (peleaId && Date.now() - lastBackendFetch > 25000) loadFromBackend_();
         }, 5000);
 
+        // Modo evento: setup canal del evento y resolver pelea activa inicial
+        if (eventoId) {
+          setupEventoChannel_();
+          if (!peleaId) {
+            var stored = readActivePeleaFromStorage_();
+            if (stored && stored.pelea_id) {
+              peleaId = stored.pelea_id;
+            }
+          }
+        }
+
+        // Arranque
+        if (peleaId) {
+          switchToPelea_(peleaId, /*initial*/ true);
+        } else {
+          // Modo evento sin pelea activa todavía
+          showWaitingState_();
+        }
+
+        /* ============================================================
+         * Setup de canales
+         * ============================================================ */
+
+        function setupEventoChannel_() {
+          try {
+            if (typeof BroadcastChannel !== "undefined") {
+              bcEvento = new BroadcastChannel(EVENT_CURRENT_PREFIX + eventoId);
+              bcEvento.onmessage = function (e) {
+                if (!e.data || !e.data.pelea_id) return;
+                if (e.data.pelea_id !== peleaId) {
+                  switchToPelea_(e.data.pelea_id);
+                }
+              };
+            }
+          } catch (err) { /* ignore */ }
+        }
+
+        function readActivePeleaFromStorage_() {
+          try {
+            var raw = localStorage.getItem(EVENT_CURRENT_PREFIX + eventoId);
+            return raw ? JSON.parse(raw) : null;
+          } catch (e) {
+            return null;
+          }
+        }
+
+        function switchToPelea_(newPeleaId, initial) {
+          peleaId = newPeleaId;
+          pelea = null;
+          liveState = null;
+          lastRenderKey = "";
+
+          // Cerrar canal anterior
+          if (bcPelea) {
+            try { bcPelea.close(); } catch (e) {}
+            bcPelea = null;
+          }
+
+          // Crear canal nuevo per-pelea
+          try {
+            if (typeof BroadcastChannel !== "undefined") {
+              bcPelea = new BroadcastChannel("cs_scoreboard_" + peleaId);
+              bcPelea.onmessage = function (e) {
+                if (!e.data) return;
+                if (e.data.type === "finalized") {
+                  liveState = null;
+                  loadFromBackend_();
+                  return;
+                }
+                liveState = e.data;
+                render_();
+              };
+            }
+          } catch (err) { /* ignore */ }
+
+          if (!initial) {
+            // Mostrar transición breve para que el público note el cambio
+            var main = document.getElementById("public-main");
+            if (main) {
+              main.innerHTML =
+                '<div class="loading-message" style="text-align:center; padding:80px 20px; color:#888;">' +
+                "Cargando próxima pelea…" +
+                "</div>";
+            }
+          }
+
+          loadFromBackend_();
+        }
+
+        /* ============================================================
+         * Polling y fetch
+         * ============================================================ */
+
         function pollLocal_() {
+          if (!peleaId) return;
           try {
             var raw = localStorage.getItem(STORAGE_KEY_PREFIX + peleaId);
             if (!raw) {
@@ -99,7 +193,6 @@
               return;
             }
             var parsed = JSON.parse(raw);
-            // Comparar por timestamp para evitar re-renders innecesarios
             if (!liveState || liveState.savedAt !== parsed.savedAt) {
               liveState = parsed;
               render_();
@@ -108,20 +201,29 @@
         }
 
         async function loadFromBackend_() {
+          if (!peleaId) return;
           lastBackendFetch = Date.now();
+          var currentId = peleaId; // captura para detectar switches durante el fetch
           try {
-            var res = await window.api.get("peleas.get", { id: peleaId });
+            var res = await window.api.get("peleas.get", { id: currentId });
+            // Si cambiamos de pelea mientras esperábamos, ignorar
+            if (currentId !== peleaId) return;
             pelea = res.pelea;
             render_();
           } catch (err) {
+            if (currentId !== peleaId) return;
             showError_(err && err.message ? err.message : String(err));
           }
         }
 
+        /* ============================================================
+         * Render
+         * ============================================================ */
+
         function render_() {
           if (!pelea) return;
           var alreadyDecided = !!pelea.ganador_id ||
-            /^No Contest$/i.test(pelea.metodo_finalizacion || "");
+            /^(Empate|No Contest)$/i.test(pelea.metodo_finalizacion || "");
 
           // Cache: solo re-render si algo realmente cambió
           var key = renderKey_(alreadyDecided);
@@ -170,7 +272,6 @@
                 (totalRounds ? " / " + totalRounds : "");
             }
           } else {
-            // Sin snapshot todavía: mostrar categoría y "Esperando inicio"
             roundInfo = "Esperando inicio";
           }
 
@@ -241,6 +342,21 @@
           );
         }
 
+        function showWaitingState_() {
+          var main = document.getElementById("public-main");
+          main.innerHTML =
+            '<div class="public-waiting">' +
+            '<img src="../images/logo-white.png" alt="Club Samoa" class="public-waiting-logo" />' +
+            '<div class="public-waiting-title">CLUB SAMOA</div>' +
+            '<div class="public-waiting-subtitle">Esperando primera pelea del evento…</div>' +
+            '<div class="public-waiting-hint">Esta pantalla se actualizará automáticamente.</div>' +
+            "</div>";
+        }
+
+        /* ============================================================
+         * Helpers
+         * ============================================================ */
+
         function formatTiempoFinalizacion_(raw) {
           if (!raw) return { clean: "", raw: "" };
           var s = String(raw).trim();
@@ -262,8 +378,6 @@
         }
 
         function guessTotalRounds_() {
-          // El snapshot no incluye tiempoConfig.rounds explícito.
-          // Lo inferimos: si scoring.rounds.length existe, usar eso.
           if (liveState && liveState.scoring && Array.isArray(liveState.scoring.rounds)) {
             return liveState.scoring.rounds.length;
           }

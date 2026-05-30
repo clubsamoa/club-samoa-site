@@ -46,6 +46,7 @@
     "KO",
     "Descalificación",
     "Abandono",
+    "Empate",
     "No Contest",
     "No Pasó Pesaje",
     "No Pasó Examen Médico",
