@@ -55,6 +55,12 @@
       icon: "·",
       href: "./js/eventos-api.test.html",
     },
+    {
+      key: "tools-inscripciones-api",
+      label: "Tests · inscripciones API",
+      icon: "·",
+      href: "./js/inscripciones-api.test.html",
+    },
   ];
 
   function init() {

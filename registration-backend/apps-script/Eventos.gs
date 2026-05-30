@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.3.0",
+  version: "0.4.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -248,6 +248,9 @@ function doPost(e) {
  *     atletas.update, atletas.archive (tarea 05)
  *   - eventos.list, eventos.get, eventos.create,
  *     eventos.update, eventos.setEstatus (tarea 08)
+ *   - inscripciones.list, inscripciones.create,
+ *     inscripciones.setpesopesaje, inscripciones.setestatus,
+ *     inscripciones.delete (tarea 10)
  */
 function routeAction_(action, payload) {
   switch (action) {
@@ -290,6 +293,17 @@ function routeAction_(action, payload) {
       return handleEventosUpdate_(payload);
     case "eventos.setestatus":
       return handleEventosSetEstatus_(payload);
+
+    case "inscripciones.list":
+      return handleInscripcionesList_(payload);
+    case "inscripciones.create":
+      return handleInscripcionesCreate_(payload);
+    case "inscripciones.setpesopesaje":
+      return handleInscripcionesSetPesoPesaje_(payload);
+    case "inscripciones.setestatus":
+      return handleInscripcionesSetEstatus_(payload);
+    case "inscripciones.delete":
+      return handleInscripcionesDelete_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -869,4 +883,451 @@ function handleEventosSetEstatus_(payload) {
   sheet.getRange(rowIndex, col).setValue(estatus);
 
   return { ok: true, id: payload.id, estatus: estatus };
+}
+
+/* ============================================================
+ * Reglamento FAMM 2025 — tablas y cálculos (port de
+ * admin/js/reglamento.js).
+ *
+ * Necesario en el backend para:
+ *  - calcular categoria_calculada al inscribir y al cambiar peso (T10)
+ *  - agrupar atletas en brackets por categoría (T13+)
+ *
+ * Si el reglamento cambia, hay que actualizar AMBOS archivos.
+ * ============================================================ */
+
+const REGLAMENTO_EDAD_RANGOS = [
+  { division: "Mini 1",    min: 4,  max: 5   },
+  { division: "Mini 2",    min: 6,  max: 7   },
+  { division: "Infantil",  min: 8,  max: 9   },
+  { division: "Juvenil D", min: 10, max: 11  },
+  { division: "Juvenil C", min: 12, max: 13  },
+  { division: "Juvenil B", min: 14, max: 15  },
+  { division: "Juvenil A", min: 16, max: 17  },
+  { division: "Junior",    min: 18, max: 20  },
+  { division: "Adultos",   min: 21, max: 150 },
+];
+
+const REGLAMENTO_PESOS_MINI = [
+  { nombre: "Mini Cat. 1",  pesoMax: 23 },
+  { nombre: "Mini Cat. 2",  pesoMax: 26 },
+  { nombre: "Mini Cat. 3",  pesoMax: 29 },
+  { nombre: "Mini Cat. 4",  pesoMax: 32 },
+  { nombre: "Mini Cat. 5",  pesoMax: 35 },
+  { nombre: "Mini Cat. 6",  pesoMax: 38 },
+  { nombre: "Mini Cat. 7",  pesoMax: 41 },
+  { nombre: "Mini Cat. 8",  pesoMax: 47 },
+  { nombre: "Mini Cat. 9",  pesoMax: 50 },
+  { nombre: "Mini Cat. 10", pesoMax: 53 },
+  { nombre: "Mini Cat. 11", pesoMax: 56 },
+  { nombre: "Mini Cat. 12", pesoMax: 59 },
+  { nombre: "Mini Cat. Abierta", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_INFANTIL = [
+  { nombre: "Menos 24 kg", pesoMax: 24 },
+  { nombre: "Menos 27 kg", pesoMax: 27 },
+  { nombre: "Menos 31 kg", pesoMax: 31 },
+  { nombre: "Menos 34 kg", pesoMax: 34 },
+  { nombre: "Menos 37 kg", pesoMax: 37 },
+  { nombre: "Menos 40 kg", pesoMax: 40 },
+  { nombre: "Menos 44 kg", pesoMax: 44 },
+  { nombre: "Menos 48 kg", pesoMax: 48 },
+  { nombre: "Menos 52 kg", pesoMax: 52 },
+  { nombre: "Menos 57 kg", pesoMax: 57 },
+  { nombre: "Menos 62 kg", pesoMax: 62 },
+  { nombre: "Menos 65 kg", pesoMax: 65 },
+  { nombre: "Más de 65 kg", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_JUVENIL_D = [
+  { nombre: "Menos 30 kg", pesoMax: 30 },
+  { nombre: "Menos 34 kg", pesoMax: 34 },
+  { nombre: "Menos 37 kg", pesoMax: 37 },
+  { nombre: "Menos 40 kg", pesoMax: 40 },
+  { nombre: "Menos 44 kg", pesoMax: 44 },
+  { nombre: "Menos 48 kg", pesoMax: 48 },
+  { nombre: "Menos 52 kg", pesoMax: 52 },
+  { nombre: "Menos 57 kg", pesoMax: 57 },
+  { nombre: "Menos 62 kg", pesoMax: 62 },
+  { nombre: "Menos 65 kg", pesoMax: 65 },
+  { nombre: "Menos 70 kg", pesoMax: 70 },
+  { nombre: "Más de 70 kg", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_JUVENIL_C = [
+  { nombre: "Menos 40 kg", pesoMax: 40 },
+  { nombre: "Menos 44 kg", pesoMax: 44 },
+  { nombre: "Menos 48 kg", pesoMax: 48 },
+  { nombre: "Menos 52 kg", pesoMax: 52 },
+  { nombre: "Menos 57 kg", pesoMax: 57 },
+  { nombre: "Menos 62 kg", pesoMax: 62 },
+  { nombre: "Menos 67 kg", pesoMax: 67 },
+  { nombre: "Menos 72 kg", pesoMax: 72 },
+  { nombre: "Menos 77 kg", pesoMax: 77 },
+  { nombre: "Menos 82 kg", pesoMax: 82 },
+  { nombre: "Más de 82 kg", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_JUVENIL_B = REGLAMENTO_PESOS_JUVENIL_C;
+
+const REGLAMENTO_PESOS_JUVENIL_A_VARONIL = [
+  { nombre: "Paja",        pesoMax: 52.2 },
+  { nombre: "Mosca",       pesoMax: 56.7 },
+  { nombre: "Gallo",       pesoMax: 61.2 },
+  { nombre: "Pluma",       pesoMax: 65.8 },
+  { nombre: "Ligero",      pesoMax: 70.3 },
+  { nombre: "Superligero", pesoMax: 74.8 },
+  { nombre: "Superwelter", pesoMax: 79.4 },
+  { nombre: "Medio",       pesoMax: 83.9 },
+  { nombre: "Supermedio",  pesoMax: 88.4 },
+  { nombre: "Semipesado",  pesoMax: 93 },
+  { nombre: "Más de 93 kg", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_JUVENIL_A_FEMENIL = [
+  { nombre: "Átomo",       pesoMax: 47.6 },
+  { nombre: "Paja",        pesoMax: 52.2 },
+  { nombre: "Mosca",       pesoMax: 56.7 },
+  { nombre: "Gallo",       pesoMax: 61.2 },
+  { nombre: "Pluma",       pesoMax: 65.8 },
+  { nombre: "Ligero",      pesoMax: 70.3 },
+  { nombre: "Superligero", pesoMax: 74.8 },
+  { nombre: "Superwelter", pesoMax: 79.4 },
+  { nombre: "Medio",       pesoMax: 83 },
+  { nombre: "Más de 83 kg", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_ADULTOS_VARONIL = [
+  { nombre: "Peso Paja",   pesoMax: 52.2 },
+  { nombre: "Peso Mosca",  pesoMax: 56.7 },
+  { nombre: "Peso Gallo",  pesoMax: 61.2 },
+  { nombre: "Peso Pluma",  pesoMax: 65.8 },
+  { nombre: "Peso Ligero", pesoMax: 70.3 },
+  { nombre: "Superligero", pesoMax: 74.8 },
+  { nombre: "Superwelter", pesoMax: 79.4 },
+  { nombre: "Medio",       pesoMax: 83.9 },
+  { nombre: "Supermedio",  pesoMax: 88.4 },
+  { nombre: "Semipesado",  pesoMax: 93 },
+  { nombre: "Pesado",      pesoMax: 97 },
+  { nombre: "Superpesado", pesoMax: Infinity },
+];
+
+const REGLAMENTO_PESOS_ADULTOS_FEMENIL = [
+  { nombre: "Átomo",       pesoMax: 47.7 },
+  { nombre: "Paja",        pesoMax: 52.2 },
+  { nombre: "Mosca",       pesoMax: 56.7 },
+  { nombre: "Gallo",       pesoMax: 61.2 },
+  { nombre: "Pluma",       pesoMax: 65.8 },
+  { nombre: "Ligero",      pesoMax: 70.3 },
+  { nombre: "Superligero", pesoMax: 74.8 },
+  { nombre: "Superwelter", pesoMax: 79.4 },
+  { nombre: "Medio",       pesoMax: 83.9 },
+  { nombre: "Supermedio",  pesoMax: 88.4 },
+  { nombre: "Más de 88.4 kg", pesoMax: Infinity },
+];
+
+function parseDateString_(s) {
+  if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
+  if (!s) return null;
+  const str = String(s);
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function calcularDivisionEdadGs_(fechaNacimiento, fechaReferencia) {
+  const fn = parseDateString_(fechaNacimiento);
+  const fr = parseDateString_(fechaReferencia);
+  if (!fn || !fr) return "";
+  let edad = fr.getFullYear() - fn.getFullYear();
+  const m = fr.getMonth() - fn.getMonth();
+  if (m < 0 || (m === 0 && fr.getDate() < fn.getDate())) edad -= 1;
+  for (let i = 0; i < REGLAMENTO_EDAD_RANGOS.length; i += 1) {
+    const r = REGLAMENTO_EDAD_RANGOS[i];
+    if (edad >= r.min && edad <= r.max) return r.division;
+  }
+  return "";
+}
+
+function categoriasPesoParaGs_(division, genero) {
+  switch (division) {
+    case "Mini 1":
+    case "Mini 2":
+      return REGLAMENTO_PESOS_MINI;
+    case "Infantil":
+      return REGLAMENTO_PESOS_INFANTIL;
+    case "Juvenil D":
+      return REGLAMENTO_PESOS_JUVENIL_D;
+    case "Juvenil C":
+      return REGLAMENTO_PESOS_JUVENIL_C;
+    case "Juvenil B":
+      return REGLAMENTO_PESOS_JUVENIL_B;
+    case "Juvenil A":
+      return genero === "Femenino"
+        ? REGLAMENTO_PESOS_JUVENIL_A_FEMENIL
+        : REGLAMENTO_PESOS_JUVENIL_A_VARONIL;
+    case "Junior":
+    case "Adultos":
+      return genero === "Femenino"
+        ? REGLAMENTO_PESOS_ADULTOS_FEMENIL
+        : REGLAMENTO_PESOS_ADULTOS_VARONIL;
+    default:
+      return [];
+  }
+}
+
+function calcularCategoriaPesoGs_(division, genero, pesoKg) {
+  const peso = Number(pesoKg);
+  if (!isFinite(peso) || peso <= 0) return null;
+  const lista = categoriasPesoParaGs_(division, genero);
+  for (let i = 0; i < lista.length; i += 1) {
+    if (peso < lista[i].pesoMax) return lista[i];
+  }
+  return lista.length ? lista[lista.length - 1] : null;
+}
+
+/**
+ * Devuelve el string completo de categoría:
+ *   "<División> / <Género> / <Nivel> / <Peso>"
+ * Por ejemplo: "Adultos / Masculino / Avanzado / Peso Ligero"
+ *
+ * Se usa peso_pesaje_kg si está presente; si no, peso_referencia_kg
+ * del atleta.
+ */
+function calcularCategoriaCompleta_(spreadsheet, inscripcion) {
+  const { row: atletaRow } = findRowById_(spreadsheet, EVENTOS_TABS.atletas, inscripcion.atleta_id);
+  if (!atletaRow) return "";
+  const { row: eventoRow } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, inscripcion.evento_id);
+  if (!eventoRow) return "";
+
+  const atleta = rowToAtleta_(atletaRow);
+  const evento = rowToEvento_(eventoRow);
+
+  const division = calcularDivisionEdadGs_(atleta.fecha_nacimiento, evento.fecha);
+  if (!division) return "";
+
+  const pesoPesaje = Number(inscripcion.peso_pesaje_kg);
+  const peso = pesoPesaje > 0 ? pesoPesaje : Number(atleta.peso_referencia_kg);
+  const cat = calcularCategoriaPesoGs_(division, atleta.genero, peso);
+  if (!cat) return "";
+
+  return [division, atleta.genero, atleta.nivel, cat.nombre].join(" / ");
+}
+
+/* ============================================================
+ * Inscripciones — definición de campos y mappers
+ * ============================================================ */
+
+const INSCRIPCIONES_FIELDS = [
+  { key: "id",                  header: "ID",                   type: "string",   system: true },
+  { key: "evento_id",           header: "Evento ID",            type: "string",   required: true,  editable: false },
+  { key: "atleta_id",           header: "Atleta ID",            type: "string",   required: true,  editable: false },
+  { key: "peso_pesaje_kg",      header: "Peso pesaje (kg)",     type: "number",   editable: true },
+  { key: "categoria_calculada", header: "Categoria calculada",  type: "string",   system: true },
+  { key: "estatus",             header: "Estatus",              type: "enum",     values: ESTATUS_INSCRIPCION, system: true },
+  { key: "creado_en",           header: "Creado en",            type: "datetime", system: true },
+];
+
+function rowToInscripcion_(row) {
+  const out = {};
+  INSCRIPCIONES_FIELDS.forEach((field) => {
+    out[field.key] = normalizeOutput_(row[field.header], field.type);
+  });
+  return out;
+}
+
+function inscripcionToRow_(ins) {
+  const row = {};
+  INSCRIPCIONES_FIELDS.forEach((field) => {
+    if (!(field.key in ins)) return;
+    row[field.header] = normalizeInput_(ins[field.key], field.type);
+  });
+  return row;
+}
+
+/* ============================================================
+ * Inscripciones — action handlers
+ * ============================================================ */
+
+function handleInscripcionesList_(payload) {
+  requireFields_(payload, ["evento_id"]);
+  const eventoId = String(payload.evento_id);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  const rows = readRows_(spreadsheet, EVENTOS_TABS.inscripciones);
+  const inscripciones = rows
+    .map(rowToInscripcion_)
+    .filter((i) => i.evento_id === eventoId);
+
+  // Cache atletas para enriquecer la respuesta sin N+1 queries
+  const atletasRows = readRows_(spreadsheet, EVENTOS_TABS.atletas);
+  const atletaById = {};
+  atletasRows.forEach((r) => {
+    const a = rowToAtleta_(r);
+    atletaById[a.id] = a;
+  });
+
+  const enriched = inscripciones.map((ins) => {
+    const a = atletaById[ins.atleta_id];
+    return Object.assign({}, ins, {
+      atleta: a
+        ? {
+            id: a.id,
+            nombre_completo: a.nombre_completo,
+            fecha_nacimiento: a.fecha_nacimiento,
+            genero: a.genero,
+            nivel: a.nivel,
+            peso_referencia_kg: a.peso_referencia_kg,
+            academia: a.academia,
+            pais: a.pais,
+            foto_url: a.foto_url,
+            activo: a.activo,
+          }
+        : null,
+    });
+  });
+
+  return { ok: true, count: enriched.length, inscripciones: enriched };
+}
+
+function handleInscripcionesCreate_(payload) {
+  requireFields_(payload, ["evento_id", "atleta_ids"]);
+  const eventoId = String(payload.evento_id);
+  let atletaIds = payload.atleta_ids;
+
+  // Aceptar CSV o array
+  if (typeof atletaIds === "string") {
+    atletaIds = atletaIds.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+  if (!Array.isArray(atletaIds) || atletaIds.length === 0) {
+    throw new Error("atleta_ids debe ser un array no vacío");
+  }
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  const { row: eventoRow } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, eventoId);
+  if (!eventoRow) throw new Error("Evento no encontrado: " + eventoId);
+
+  // Cache atletas activos
+  const atletasRows = readRows_(spreadsheet, EVENTOS_TABS.atletas);
+  const atletaById = {};
+  atletasRows.forEach((r) => {
+    const a = rowToAtleta_(r);
+    if (a.activo) atletaById[a.id] = a;
+  });
+
+  // Cache inscripciones existentes en este evento → dedup
+  const existentes = readRows_(spreadsheet, EVENTOS_TABS.inscripciones)
+    .map(rowToInscripcion_);
+  const inscritosKey = {};
+  existentes.forEach((i) => {
+    if (i.evento_id === eventoId) inscritosKey[i.atleta_id] = i.id;
+  });
+
+  const created = [];
+  const skipped = [];
+
+  atletaIds.forEach((rawId) => {
+    const aid = String(rawId).trim();
+    if (!aid) return;
+    if (!atletaById[aid]) {
+      skipped.push({ atleta_id: aid, reason: "atleta no encontrado o archivado" });
+      return;
+    }
+    if (inscritosKey[aid]) {
+      skipped.push({ atleta_id: aid, reason: "ya inscrito en este evento", inscripcion_id: inscritosKey[aid] });
+      return;
+    }
+    const id = nextId_(spreadsheet, EVENTOS_TABS.inscripciones, "ins");
+    const ins = {
+      id: id,
+      evento_id: eventoId,
+      atleta_id: aid,
+      peso_pesaje_kg: "",
+      categoria_calculada: "",
+      estatus: "pendiente_pesaje",
+      creado_en: new Date(),
+    };
+    // Calcula categoría usando el peso de referencia del atleta
+    ins.categoria_calculada = calcularCategoriaCompleta_(spreadsheet, ins);
+    appendRow_(spreadsheet, EVENTOS_TABS.inscripciones, inscripcionToRow_(ins));
+    inscritosKey[aid] = id;
+    created.push(ins);
+  });
+
+  return {
+    ok: true,
+    count_created: created.length,
+    count_skipped: skipped.length,
+    created: created,
+    skipped: skipped,
+  };
+}
+
+function handleInscripcionesSetPesoPesaje_(payload) {
+  requireFields_(payload, ["id", "peso_kg"]);
+  const peso = Number(payload.peso_kg);
+  if (!isFinite(peso) || peso <= 0) {
+    throw new Error("peso_kg debe ser > 0, recibido: " + payload.peso_kg);
+  }
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  if (!row) throw new Error("Inscripción no encontrada: " + payload.id);
+
+  // 1) Escribe el peso
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.inscripciones);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const pesoCol = headers.indexOf("Peso pesaje (kg)") + 1;
+  if (pesoCol <= 0) throw new Error("Columna 'Peso pesaje (kg)' no encontrada.");
+  sheet.getRange(rowIndex, pesoCol).setValue(peso);
+
+  // 2) Recalcula la categoría con el nuevo peso
+  const ins = rowToInscripcion_(row);
+  ins.peso_pesaje_kg = peso;
+  const nuevaCat = calcularCategoriaCompleta_(spreadsheet, ins);
+  const catCol = headers.indexOf("Categoria calculada") + 1;
+  if (catCol > 0) sheet.getRange(rowIndex, catCol).setValue(nuevaCat);
+
+  // Devolver el estado actualizado
+  const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  return { ok: true, inscripcion: rowToInscripcion_(finalRow) };
+}
+
+function handleInscripcionesSetEstatus_(payload) {
+  requireFields_(payload, ["id", "estatus"]);
+  const estatus = String(payload.estatus).toLowerCase().trim();
+  if (ESTATUS_INSCRIPCION.indexOf(estatus) < 0) {
+    throw new Error(
+      "estatus debe ser uno de [" + ESTATUS_INSCRIPCION.join(", ") + "], recibido: " + payload.estatus,
+    );
+  }
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  if (!row) throw new Error("Inscripción no encontrada: " + payload.id);
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.inscripciones);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const col = headers.indexOf("Estatus") + 1;
+  if (col <= 0) throw new Error("Columna 'Estatus' no encontrada en Inscripciones.");
+  sheet.getRange(rowIndex, col).setValue(estatus);
+
+  return { ok: true, id: payload.id, estatus: estatus };
+}
+
+function handleInscripcionesDelete_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.inscripciones, payload.id);
+  if (!row) throw new Error("Inscripción no encontrada: " + payload.id);
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.inscripciones);
+  sheet.deleteRow(rowIndex);
+
+  return { ok: true, id: payload.id, deleted: true };
 }
