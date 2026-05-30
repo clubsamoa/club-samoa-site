@@ -67,6 +67,12 @@
       icon: "·",
       href: "./js/bracket-builder.test.html",
     },
+    {
+      key: "tools-brackets-api",
+      label: "Tests · brackets API",
+      icon: "·",
+      href: "./js/brackets-api.test.html",
+    },
   ];
 
   function init() {

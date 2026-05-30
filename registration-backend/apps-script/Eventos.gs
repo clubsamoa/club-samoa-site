@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.5.0",
+  version: "0.6.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -103,6 +103,12 @@ const PELEAS_HEADERS = [
   "Tiempo finalizacion",
   "Notas",
   "Actualizado en",
+  "Ronda idx",
+  "Numero en ronda",
+  "Bye",
+  "Auto ganador ID",
+  "Pelea anterior 1",
+  "Pelea anterior 2",
 ];
 
 const CONFIGURACION_HEADERS = ["Clave", "Valor", "Notas"];
@@ -309,6 +315,17 @@ function routeAction_(action, payload) {
       return handleInscripcionesClearCategoria_(payload);
     case "inscripciones.delete":
       return handleInscripcionesDelete_(payload);
+
+    case "brackets.confirm":
+      return handleBracketsConfirm_(payload);
+    case "brackets.list":
+      return handleBracketsList_(payload);
+    case "brackets.get":
+      return handleBracketsGet_(payload);
+    case "brackets.delete":
+      return handleBracketsDelete_(payload);
+    case "peleas.update":
+      return handlePeleasUpdate_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -1399,4 +1416,428 @@ function handleInscripcionesDelete_(payload) {
   sheet.deleteRow(rowIndex);
 
   return { ok: true, id: payload.id, deleted: true };
+}
+
+/* ============================================================
+ * Brackets y Peleas — definición de campos y mappers (T15)
+ * ============================================================ */
+
+const BRACKETS_FIELDS = [
+  { key: "id",              header: "ID",              type: "string",   system: true },
+  { key: "evento_id",       header: "Evento ID",       type: "string",   required: true,  editable: false },
+  { key: "categoria",       header: "Categoria",       type: "string",   required: true,  editable: false },
+  { key: "tipo_bracket",    header: "Tipo bracket",    type: "string",   required: true,  editable: false },
+  { key: "num_atletas",     header: "Num atletas",     type: "number",   system: true },
+  { key: "estatus",         header: "Estatus",         type: "enum",     values: ESTATUS_BRACKET, system: true },
+  { key: "json_estructura", header: "JSON estructura", type: "string",   system: true },
+  { key: "creado_en",       header: "Creado en",       type: "datetime", system: true },
+];
+
+const PELEAS_FIELDS = [
+  { key: "id",                   header: "ID",                   type: "string",   system: true },
+  { key: "bracket_id",           header: "Bracket ID",           type: "string",   required: true },
+  { key: "ronda",                header: "Ronda",                type: "string",   required: true },
+  { key: "numero_pelea",         header: "Numero pelea",         type: "number",   required: true },
+  { key: "atleta1_id",           header: "Atleta1 ID",           type: "string" },
+  { key: "atleta2_id",           header: "Atleta2 ID",           type: "string" },
+  { key: "ganador_id",           header: "Ganador ID",           type: "string" },
+  { key: "metodo_finalizacion",  header: "Metodo finalizacion",  type: "string" },
+  { key: "round_finalizacion",   header: "Round finalizacion",   type: "number" },
+  { key: "tiempo_finalizacion",  header: "Tiempo finalizacion",  type: "string" },
+  { key: "notas",                header: "Notas",                type: "string" },
+  { key: "actualizado_en",       header: "Actualizado en",       type: "datetime", system: true },
+  { key: "ronda_idx",            header: "Ronda idx",            type: "number" },
+  { key: "numero_en_ronda",      header: "Numero en ronda",      type: "number" },
+  { key: "bye",                  header: "Bye",                  type: "boolean" },
+  { key: "auto_ganador_id",      header: "Auto ganador ID",      type: "string" },
+  { key: "pelea_anterior_1",     header: "Pelea anterior 1",     type: "number" },
+  { key: "pelea_anterior_2",     header: "Pelea anterior 2",     type: "number" },
+];
+
+function rowToBracket_(row) {
+  const out = {};
+  BRACKETS_FIELDS.forEach((f) => {
+    out[f.key] = normalizeOutput_(row[f.header], f.type);
+  });
+  return out;
+}
+
+function bracketToRow_(b) {
+  const row = {};
+  BRACKETS_FIELDS.forEach((f) => {
+    if (!(f.key in b)) return;
+    row[f.header] = normalizeInput_(b[f.key], f.type);
+  });
+  return row;
+}
+
+function rowToPelea_(row) {
+  const out = {};
+  PELEAS_FIELDS.forEach((f) => {
+    out[f.key] = normalizeOutput_(row[f.header], f.type);
+  });
+  return out;
+}
+
+function peleaToRow_(p) {
+  const row = {};
+  PELEAS_FIELDS.forEach((f) => {
+    if (!(f.key in p)) return;
+    row[f.header] = normalizeInput_(p[f.key], f.type);
+  });
+  return row;
+}
+
+/* ============================================================
+ * Brackets — action handlers (T15)
+ * ============================================================ */
+
+/**
+ * Confirma una lista de brackets para un evento.
+ * Recibe brackets pre-armados por el cliente (con BracketBuilder),
+ * persiste cada uno con sus peleas, asigna IDs, propaga auto-ganadores
+ * de byes a la siguiente ronda.
+ *
+ * Si ya hay brackets confirmados para el evento, requiere overwrite=true
+ * para reemplazarlos (borra los anteriores antes de crear los nuevos).
+ */
+function handleBracketsConfirm_(payload) {
+  requireFields_(payload, ["evento_id", "brackets"]);
+  const eventoId = String(payload.evento_id);
+  const brackets = payload.brackets;
+  const overwrite = payload.overwrite === true ||
+    String(payload.overwrite).toLowerCase() === "true";
+
+  if (!Array.isArray(brackets) || brackets.length === 0) {
+    throw new Error("brackets debe ser un array no vacío");
+  }
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row: eventoRow } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, eventoId);
+  if (!eventoRow) throw new Error("Evento no encontrado: " + eventoId);
+
+  // Verificar si ya hay brackets para este evento
+  const existentes = readRows_(spreadsheet, EVENTOS_TABS.brackets)
+    .map(rowToBracket_)
+    .filter((b) => b.evento_id === eventoId);
+
+  if (existentes.length > 0 && !overwrite) {
+    throw new Error(
+      "Ya hay " + existentes.length + " bracket(s) confirmados para este evento. " +
+      "Envía overwrite=true para reemplazarlos.",
+    );
+  }
+
+  if (existentes.length > 0 && overwrite) {
+    // Borrar brackets + peleas existentes para este evento
+    deleteBracketsForEvento_(spreadsheet, eventoId);
+  }
+
+  const created = [];
+
+  brackets.forEach((b) => {
+    if (!b.categoria) throw new Error("bracket sin categoria");
+    if (!Array.isArray(b.peleas) || b.peleas.length === 0) {
+      throw new Error("bracket sin peleas");
+    }
+
+    const bracketId = nextId_(spreadsheet, EVENTOS_TABS.brackets, "brk");
+    const numAtletas = Array.isArray(b.atletas) ? b.atletas.length : null;
+
+    const bracket = {
+      id: bracketId,
+      evento_id: eventoId,
+      categoria: String(b.categoria),
+      tipo_bracket: String(b.tipo_bracket || b.tipo || "single_elimination"),
+      num_atletas: numAtletas,
+      estatus: "confirmado",
+      json_estructura: JSON.stringify({
+        atleta_ids: (b.atletas || []).map((a) => a && (a.id || a.atleta_id)),
+      }),
+      creado_en: new Date(),
+    };
+    appendRow_(spreadsheet, EVENTOS_TABS.brackets, bracketToRow_(bracket));
+
+    // Asignar IDs a las peleas y guardar
+    // Mapeamos cliente.numero → backend.id para resolver pelea_anterior_X
+    const numeroToId = {};
+    const peleasInsertadas = [];
+
+    // Primer pasada: crear peleas con IDs
+    b.peleas.forEach((p) => {
+      const peleaId = nextId_(spreadsheet, EVENTOS_TABS.peleas, "pel");
+      numeroToId[Number(p.numero)] = peleaId;
+
+      const pelea = {
+        id: peleaId,
+        bracket_id: bracketId,
+        ronda: String(p.ronda || ""),
+        numero_pelea: Number(p.numero) || 0,
+        atleta1_id: idOf_(p.atleta1) || (p.atleta1_id || ""),
+        atleta2_id: idOf_(p.atleta2) || (p.atleta2_id || ""),
+        ganador_id: p.bye ? (p.auto_ganador_id || "") : "",
+        metodo_finalizacion: "",
+        round_finalizacion: "",
+        tiempo_finalizacion: "",
+        notas: "",
+        actualizado_en: new Date(),
+        ronda_idx: Number(p.ronda_idx) || 0,
+        numero_en_ronda: Number(p.numero_en_ronda) || 0,
+        bye: !!p.bye,
+        auto_ganador_id: p.auto_ganador_id || "",
+        pelea_anterior_1: p.pelea_anterior_1 != null ? Number(p.pelea_anterior_1) : "",
+        pelea_anterior_2: p.pelea_anterior_2 != null ? Number(p.pelea_anterior_2) : "",
+      };
+      appendRow_(spreadsheet, EVENTOS_TABS.peleas, peleaToRow_(pelea));
+      peleasInsertadas.push(pelea);
+    });
+
+    // Si hay byes y la siguiente ronda no tenía pre-poblado el atleta,
+    // (el cliente ya pre-puebla, pero por defensa cubrimos aquí también),
+    // propagamos. En la práctica BracketBuilder ya lo hace.
+
+    created.push({
+      id: bracketId,
+      categoria: bracket.categoria,
+      tipo_bracket: bracket.tipo_bracket,
+      num_atletas: bracket.num_atletas,
+      estatus: bracket.estatus,
+      num_peleas: peleasInsertadas.length,
+    });
+  });
+
+  return { ok: true, count: created.length, brackets: created };
+}
+
+function deleteBracketsForEvento_(spreadsheet, eventoId) {
+  const brSheet = spreadsheet.getSheetByName(EVENTOS_TABS.brackets);
+  const pelSheet = spreadsheet.getSheetByName(EVENTOS_TABS.peleas);
+
+  // Leer todos los brackets y peleas del evento
+  const brackets = readRows_(spreadsheet, EVENTOS_TABS.brackets)
+    .map(rowToBracket_)
+    .filter((b) => b.evento_id === eventoId);
+  const bracketIds = brackets.map((b) => b.id);
+
+  // Borrar peleas (de abajo hacia arriba para preservar índices)
+  const pelLast = pelSheet.getLastRow();
+  if (pelLast >= 2) {
+    const pelRows = pelSheet.getRange(2, 1, pelLast - 1, pelSheet.getLastColumn()).getValues();
+    const headers = pelSheet.getRange(1, 1, 1, pelSheet.getLastColumn()).getValues()[0];
+    const bracketIdCol = headers.indexOf("Bracket ID");
+    const rowsToDelete = [];
+    pelRows.forEach((r, idx) => {
+      if (bracketIds.indexOf(String(r[bracketIdCol])) >= 0) {
+        rowsToDelete.push(idx + 2);
+      }
+    });
+    rowsToDelete.reverse().forEach((rIdx) => {
+      pelSheet.deleteRow(rIdx);
+    });
+  }
+
+  // Borrar brackets
+  const brLast = brSheet.getLastRow();
+  if (brLast >= 2) {
+    const brRows = brSheet.getRange(2, 1, brLast - 1, brSheet.getLastColumn()).getValues();
+    const headers = brSheet.getRange(1, 1, 1, brSheet.getLastColumn()).getValues()[0];
+    const idCol = headers.indexOf("ID");
+    const rowsToDelete = [];
+    brRows.forEach((r, idx) => {
+      if (bracketIds.indexOf(String(r[idCol])) >= 0) {
+        rowsToDelete.push(idx + 2);
+      }
+    });
+    rowsToDelete.reverse().forEach((rIdx) => {
+      brSheet.deleteRow(rIdx);
+    });
+  }
+}
+
+function handleBracketsList_(payload) {
+  requireFields_(payload, ["evento_id"]);
+  const eventoId = String(payload.evento_id);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  const brackets = readRows_(spreadsheet, EVENTOS_TABS.brackets)
+    .map(rowToBracket_)
+    .filter((b) => b.evento_id === eventoId);
+
+  // Sin peleas anidadas en list, solo metadata. Usa get para detalle completo.
+  return { ok: true, count: brackets.length, brackets: brackets };
+}
+
+function handleBracketsGet_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.brackets, payload.id);
+  if (!row) throw new Error("Bracket no encontrado: " + payload.id);
+  const bracket = rowToBracket_(row);
+
+  // Cargar peleas del bracket
+  const peleas = readRows_(spreadsheet, EVENTOS_TABS.peleas)
+    .map(rowToPelea_)
+    .filter((p) => p.bracket_id === payload.id)
+    .sort((a, b) => Number(a.numero_pelea) - Number(b.numero_pelea));
+
+  // Enriquecer con atletas
+  const atletasRows = readRows_(spreadsheet, EVENTOS_TABS.atletas);
+  const atletaById = {};
+  atletasRows.forEach((r) => {
+    const a = rowToAtleta_(r);
+    atletaById[a.id] = a;
+  });
+
+  const peleasEnriquecidas = peleas.map((p) => {
+    return Object.assign({}, p, {
+      atleta1: p.atleta1_id ? atletaShort_(atletaById[p.atleta1_id]) : null,
+      atleta2: p.atleta2_id ? atletaShort_(atletaById[p.atleta2_id]) : null,
+      ganador: p.ganador_id ? atletaShort_(atletaById[p.ganador_id]) : null,
+    });
+  });
+
+  bracket.peleas = peleasEnriquecidas;
+  return { ok: true, bracket: bracket };
+}
+
+function handleBracketsDelete_(payload) {
+  requireFields_(payload, ["evento_id"]);
+  const eventoId = String(payload.evento_id);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row: eventoRow } = findRowById_(spreadsheet, EVENTOS_TABS.eventos, eventoId);
+  if (!eventoRow) throw new Error("Evento no encontrado: " + eventoId);
+
+  deleteBracketsForEvento_(spreadsheet, eventoId);
+  return { ok: true, evento_id: eventoId, deleted: true };
+}
+
+function atletaShort_(a) {
+  if (!a) return null;
+  return {
+    id: a.id,
+    nombre_completo: a.nombre_completo,
+    genero: a.genero,
+    nivel: a.nivel,
+    academia: a.academia,
+    pais: a.pais,
+    foto_url: a.foto_url,
+  };
+}
+
+function idOf_(maybeAtleta) {
+  if (!maybeAtleta) return "";
+  if (typeof maybeAtleta === "string") return maybeAtleta;
+  return maybeAtleta.id || "";
+}
+
+/* ============================================================
+ * Peleas — action handlers (T15)
+ * ============================================================ */
+
+/**
+ * Actualiza el resultado de una pelea y propaga automáticamente al
+ * ganador a la siguiente ronda.
+ *
+ * Campos editables: ganador_id, metodo_finalizacion, round_finalizacion,
+ * tiempo_finalizacion, notas.
+ *
+ * Si ganador_id cambia (incluyendo limpieza a vacío), busca las peleas
+ * siguientes en el mismo bracket (donde pelea_anterior_1/2 = numero de
+ * esta pelea) y actualiza atleta1_id / atleta2_id.
+ */
+function handlePeleasUpdate_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { rowIndex, row } = findRowById_(spreadsheet, EVENTOS_TABS.peleas, payload.id);
+  if (!row) throw new Error("Pelea no encontrada: " + payload.id);
+
+  const pelea = rowToPelea_(row);
+  const prevGanador = pelea.ganador_id;
+  const newGanador = "ganador_id" in payload
+    ? (payload.ganador_id ? String(payload.ganador_id) : "")
+    : prevGanador;
+
+  // Validación: ganador_id debe ser uno de los atletas de esta pelea
+  if (newGanador && newGanador !== pelea.atleta1_id && newGanador !== pelea.atleta2_id) {
+    throw new Error(
+      "ganador_id (" + newGanador + ") debe ser atleta1_id (" + pelea.atleta1_id +
+      ") o atleta2_id (" + pelea.atleta2_id + ")",
+    );
+  }
+
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.peleas);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  // Update editable fields
+  const updates = {
+    "Ganador ID": newGanador,
+    "Metodo finalizacion": "metodo_finalizacion" in payload ? String(payload.metodo_finalizacion || "") : pelea.metodo_finalizacion,
+    "Round finalizacion": "round_finalizacion" in payload ? (payload.round_finalizacion === "" ? "" : Number(payload.round_finalizacion)) : pelea.round_finalizacion,
+    "Tiempo finalizacion": "tiempo_finalizacion" in payload ? String(payload.tiempo_finalizacion || "") : pelea.tiempo_finalizacion,
+    "Notas": "notas" in payload ? String(payload.notas || "") : pelea.notas,
+    "Actualizado en": new Date(),
+  };
+
+  Object.keys(updates).forEach((header) => {
+    const col = headers.indexOf(header) + 1;
+    if (col > 0) sheet.getRange(rowIndex, col).setValue(updates[header]);
+  });
+
+  // Auto-advance: si el ganador cambió, propagamos a peleas siguientes
+  if (newGanador !== prevGanador) {
+    autoAdvanceGanador_(spreadsheet, pelea.bracket_id, pelea.numero_pelea, newGanador, prevGanador);
+  }
+
+  // Devolver el estado actualizado (con peleas dependientes ya propagadas)
+  const { row: finalRow } = findRowById_(spreadsheet, EVENTOS_TABS.peleas, payload.id);
+  return { ok: true, pelea: rowToPelea_(finalRow) };
+}
+
+/**
+ * Encuentra peleas siguientes en el bracket donde la pelea actualizada
+ * es pelea_anterior_1 o pelea_anterior_2, y actualiza atleta1_id /
+ * atleta2_id. Si el ganador se borró, también limpia.
+ */
+function autoAdvanceGanador_(spreadsheet, bracketId, peleaNumero, nuevoGanador, ganadorPrevio) {
+  const sheet = spreadsheet.getSheetByName(EVENTOS_TABS.peleas);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return;
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  const bracketIdCol = headers.indexOf("Bracket ID");
+  const anterior1Col = headers.indexOf("Pelea anterior 1");
+  const anterior2Col = headers.indexOf("Pelea anterior 2");
+  const atleta1Col = headers.indexOf("Atleta1 ID");
+  const atleta2Col = headers.indexOf("Atleta2 ID");
+
+  if ([bracketIdCol, anterior1Col, anterior2Col, atleta1Col, atleta2Col].some((c) => c < 0)) {
+    // Columnas faltantes, no podemos auto-avanzar
+    return;
+  }
+
+  rows.forEach((r, idx) => {
+    if (String(r[bracketIdCol]) !== String(bracketId)) return;
+    const rowIndex = idx + 2;
+    const ant1 = r[anterior1Col];
+    const ant2 = r[anterior2Col];
+
+    if (ant1 !== "" && Number(ant1) === Number(peleaNumero)) {
+      // Si el ganador previo está en atleta1 → reemplazar
+      if (nuevoGanador) {
+        sheet.getRange(rowIndex, atleta1Col + 1).setValue(nuevoGanador);
+      } else if (String(r[atleta1Col]) === String(ganadorPrevio)) {
+        // Si se borró el ganador y el atleta1 era ese, limpiar
+        sheet.getRange(rowIndex, atleta1Col + 1).setValue("");
+      }
+    }
+    if (ant2 !== "" && Number(ant2) === Number(peleaNumero)) {
+      if (nuevoGanador) {
+        sheet.getRange(rowIndex, atleta2Col + 1).setValue(nuevoGanador);
+      } else if (String(r[atleta2Col]) === String(ganadorPrevio)) {
+        sheet.getRange(rowIndex, atleta2Col + 1).setValue("");
+      }
+    }
+  });
 }
