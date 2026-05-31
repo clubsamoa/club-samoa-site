@@ -275,13 +275,13 @@ textarea {
   min-width: 28px;
 }
 
-/* Para que los dos botones del row de atletas queden juntos */
-td.actions {
+/* Los botones de acción dentro de td.actions van en flex inline */
+.data-table td.actions {
   white-space: nowrap;
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-  align-items: center;
+}
+
+.data-table td.actions .btn + .btn {
+  margin-left: 6px;
 }
 
 /* ---------- Main ---------- */
