@@ -45,6 +45,42 @@
     return state.peleaId ? STORAGE_KEY_PREFIX + state.peleaId : null;
   }
 
+  /* ------------------------------------------------------------------
+   * Handoff de la próxima pelea entre páginas.
+   *
+   * Al finalizar, peleas.finalize ya nos devuelve la siguiente pelea
+   * enriquecida. La guardamos en sessionStorage y la página siguiente la
+   * pinta al instante, sin un peleas.get extra (~2s menos por pelea en
+   * vivo). Es de un solo uso y caduca rápido para no pintar datos viejos.
+   * ------------------------------------------------------------------ */
+  var PREFETCH_KEY_PREFIX = "cs_prefetch_pelea_";
+
+  function stashPrefetchedPelea_(peleaId, pelea) {
+    if (!peleaId || !pelea) return;
+    try {
+      sessionStorage.setItem(
+        PREFETCH_KEY_PREFIX + peleaId,
+        JSON.stringify({ savedAt: Date.now(), pelea: pelea }),
+      );
+    } catch (e) { /* ignore */ }
+  }
+
+  function readPrefetchedPelea_(peleaId) {
+    if (!peleaId) return null;
+    try {
+      var raw = sessionStorage.getItem(PREFETCH_KEY_PREFIX + peleaId);
+      if (!raw) return null;
+      sessionStorage.removeItem(PREFETCH_KEY_PREFIX + peleaId); // un solo uso
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.pelea) return null;
+      // Solo si es reciente (evita datos de una sesión anterior).
+      if (Date.now() - (parsed.savedAt || 0) > 30000) return null;
+      return parsed.pelea;
+    } catch (e) {
+      return null;
+    }
+  }
+
   var broadcastChannel_ = null;
   function getBroadcastChannel_() {
     if (!state.peleaId) return null;
@@ -283,8 +319,16 @@
     renderLoading();
 
     try {
-      var res = await root.api.get("peleas.get", { id: state.peleaId });
-      state.pelea = res.pelea;
+      // Si venimos de finalizar la pelea anterior, peleas.finalize ya nos
+      // dejó esta pelea enriquecida en sessionStorage: la usamos y nos
+      // ahorramos el peleas.get (~2s). Si no, la pedimos al backend.
+      var prefetched = readPrefetchedPelea_(state.peleaId);
+      if (prefetched) {
+        state.pelea = prefetched;
+      } else {
+        var res = await root.api.get("peleas.get", { id: state.peleaId });
+        state.pelea = res.pelea;
+      }
       state.bracketCat = (state.pelea.bracket && state.pelea.bracket.categoria) || "";
       // Publicar pelea activa para vistas públicas en modo evento
       publishCurrentPelea_();
@@ -1429,24 +1473,55 @@
     finalizeRefs.saveBtn.textContent = "Guardando…";
 
     var wasEdit = finalizeMode === "edit";
+    var bracketId =
+      (state.pelea && state.pelea.bracket && state.pelea.bracket.id) ||
+      (state.pelea && state.pelea.bracket_id);
+    var eventoId =
+      (state.pelea && state.pelea.bracket && state.pelea.bracket.evento_id) ||
+      (state.pelea && state.pelea.evento_id);
 
     try {
+      // Fast path (solo al crear resultado, no al editar): UNA sola
+      // llamada guarda el resultado Y devuelve la próxima pelea ya
+      // enriquecida. Eliminamos del camino crítico el peleas.next y el
+      // peleas.get posterior: guardamos la próxima en sessionStorage y la
+      // página siguiente la pinta al instante. Si el backend no tiene
+      // peleas.finalize desplegado, caemos al método clásico de abajo.
+      if (!wasEdit) {
+        try {
+          var fin = await root.api.post("peleas.finalize", payload);
+          if (fin && fin.ok) {
+            clearSavedState_();
+            broadcastFinalized_();
+            if (fin.next_found && fin.next_pelea_id) {
+              if (fin.next_pelea) {
+                stashPrefetchedPelea_(fin.next_pelea_id, fin.next_pelea);
+              }
+              window.location.href =
+                "./scoreboard.html?pelea_id=" + encodeURIComponent(fin.next_pelea_id);
+            } else {
+              // No quedan pendientes en el evento.
+              var done = handleNoMorePending_({ fallbackToBracket: true }, eventoId, bracketId);
+              if (!done) {
+                closeFinalizeModal_();
+                load();
+              }
+            }
+            return;
+          }
+        } catch (finErr) {
+          console.warn(
+            "[scoreboard] peleas.finalize no disponible, uso método clásico:",
+            finErr,
+          );
+        }
+      }
+
+      // Camino clásico (edición, o backend sin peleas.finalize).
       await root.api.post("peleas.update", payload);
       // T21 — pelea finalizada, ya no necesitamos el snapshot
       clearSavedState_();
-
-      // Broadcast inmediato a la vista pública para que refresque
-      // su estado sin esperar al polling.
-      try {
-        var ch = getBroadcastChannel_();
-        if (ch) {
-          ch.postMessage({
-            type: "finalized",
-            peleaId: state.peleaId,
-            savedAt: Date.now(),
-          });
-        }
-      } catch (e) { /* ignore */ }
+      broadcastFinalized_();
 
       if (wasEdit) {
         // Modo edición: NO redirigir. El operador ya estaba mirando el
@@ -1476,6 +1551,23 @@
         ? "Guardar cambios"
         : "Guardar y volver al bracket";
     }
+  }
+
+  /**
+   * Broadcast inmediato a la vista pública para que refresque su estado
+   * sin esperar al polling.
+   */
+  function broadcastFinalized_() {
+    try {
+      var ch = getBroadcastChannel_();
+      if (ch) {
+        ch.postMessage({
+          type: "finalized",
+          peleaId: state.peleaId,
+          savedAt: Date.now(),
+        });
+      }
+    } catch (e) { /* ignore */ }
   }
 
   function showFinalizeFieldErrors_(errors) {
