@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.9.0",
+  version: "0.11.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -326,12 +326,18 @@ function routeAction_(action, payload) {
       return handleBracketsList_(payload);
     case "brackets.get":
       return handleBracketsGet_(payload);
+    case "brackets.listfull":
+      return handleBracketsListFull_(payload);
     case "brackets.delete":
       return handleBracketsDelete_(payload);
     case "peleas.update":
       return handlePeleasUpdate_(payload);
     case "peleas.get":
       return handlePeleasGet_(payload);
+    case "peleas.next":
+      return handlePeleasNext_(payload);
+    case "peleas.finalize":
+      return handlePeleasFinalize_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -1706,6 +1712,51 @@ function handleBracketsGet_(payload) {
   return { ok: true, bracket: bracket };
 }
 
+/**
+ * Devuelve TODOS los brackets de un evento, cada uno con sus peleas
+ * enriquecidas, leyendo Brackets / Peleas / Atletas una sola vez cada
+ * una. Reemplaza el patrón cliente brackets.list + N×brackets.get (que
+ * Apps Script serializa y que releía Peleas+Atletas por cada bracket).
+ *
+ * Misma forma por bracket que handleBracketsGet_, así el cliente puede
+ * usar res.brackets como drop-in de los detalles individuales.
+ */
+function handleBracketsListFull_(payload) {
+  requireFields_(payload, ["evento_id"]);
+  const eventoId = String(payload.evento_id);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  const brackets = readRows_(spreadsheet, EVENTOS_TABS.brackets)
+    .map(rowToBracket_)
+    .filter((b) => b.evento_id === eventoId);
+
+  // Atletas una sola vez.
+  const atletaById = buildAtletaIndex_(spreadsheet);
+
+  // Peleas una sola vez, agrupadas por bracket.
+  const peleasByBracket = {};
+  readRows_(spreadsheet, EVENTOS_TABS.peleas)
+    .map(rowToPelea_)
+    .forEach((p) => {
+      (peleasByBracket[p.bracket_id] = peleasByBracket[p.bracket_id] || []).push(p);
+    });
+
+  brackets.forEach((bracket) => {
+    const peleas = (peleasByBracket[bracket.id] || [])
+      .sort((a, b) => Number(a.numero_pelea) - Number(b.numero_pelea))
+      .map((p) => {
+        return Object.assign({}, p, {
+          atleta1: p.atleta1_id ? atletaShort_(atletaById[p.atleta1_id]) : null,
+          atleta2: p.atleta2_id ? atletaShort_(atletaById[p.atleta2_id]) : null,
+          ganador: p.ganador_id ? atletaShort_(atletaById[p.ganador_id]) : null,
+        });
+      });
+    bracket.peleas = peleas;
+  });
+
+  return { ok: true, count: brackets.length, brackets: brackets };
+}
+
 function handleBracketsDelete_(payload) {
   requireFields_(payload, ["evento_id"]);
   const eventoId = String(payload.evento_id);
@@ -1853,25 +1904,31 @@ function autoAdvanceGanador_(spreadsheet, bracketId, peleaNumero, nuevoGanador, 
  * (incluyendo la categoría completa). Útil para el scoreboard que
  * necesita saber división + nivel para configurar el timer.
  */
-function handlePeleasGet_(payload) {
-  requireFields_(payload, ["id"]);
-  const spreadsheet = getOrCreateEventosSpreadsheet_();
-  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.peleas, payload.id);
-  if (!row) throw new Error("Pelea no encontrada: " + payload.id);
-  const pelea = rowToPelea_(row);
-
-  // Enriquecer atletas
-  const atletasRows = readRows_(spreadsheet, EVENTOS_TABS.atletas);
-  const atletaById = {};
-  atletasRows.forEach((r) => {
+/**
+ * Índice {atleta_id → atleta} leyendo la pestaña Atletas una sola vez.
+ * Permite enriquecer peleas sin N+1 queries.
+ */
+function buildAtletaIndex_(spreadsheet) {
+  const idx = {};
+  readRows_(spreadsheet, EVENTOS_TABS.atletas).forEach((r) => {
     const a = rowToAtleta_(r);
-    atletaById[a.id] = a;
+    idx[a.id] = a;
   });
-  pelea.atleta1 = pelea.atleta1_id ? atletaShort_(atletaById[pelea.atleta1_id]) : null;
-  pelea.atleta2 = pelea.atleta2_id ? atletaShort_(atletaById[pelea.atleta2_id]) : null;
-  pelea.ganador = pelea.ganador_id ? atletaShort_(atletaById[pelea.ganador_id]) : null;
+  return idx;
+}
 
-  // Datos del bracket (para conocer la categoría completa)
+/**
+ * Enriquece una pelea (snake_case) con atleta1/atleta2/ganador y los
+ * datos de su bracket (categoría completa). Misma forma que devuelve
+ * handlePeleasGet_, así el cliente puede usarla como drop-in.
+ *
+ * Si se pasa atletaById (de buildAtletaIndex_) evita releer Atletas.
+ */
+function enrichPelea_(spreadsheet, pelea, atletaById) {
+  const idx = atletaById || buildAtletaIndex_(spreadsheet);
+  pelea.atleta1 = pelea.atleta1_id ? atletaShort_(idx[pelea.atleta1_id]) : null;
+  pelea.atleta2 = pelea.atleta2_id ? atletaShort_(idx[pelea.atleta2_id]) : null;
+  pelea.ganador = pelea.ganador_id ? atletaShort_(idx[pelea.ganador_id]) : null;
   if (pelea.bracket_id) {
     const { row: bRow } = findRowById_(spreadsheet, EVENTOS_TABS.brackets, pelea.bracket_id);
     if (bRow) {
@@ -1884,8 +1941,158 @@ function handlePeleasGet_(payload) {
       };
     }
   }
+  return pelea;
+}
 
-  return { ok: true, pelea: pelea };
+function handlePeleasGet_(payload) {
+  requireFields_(payload, ["id"]);
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  const { row } = findRowById_(spreadsheet, EVENTOS_TABS.peleas, payload.id);
+  if (!row) throw new Error("Pelea no encontrada: " + payload.id);
+  return { ok: true, pelea: enrichPelea_(spreadsheet, rowToPelea_(row)) };
+}
+
+/**
+ * Encuentra la siguiente pelea pendiente del evento (o de un bracket) en
+ * UNA sola llamada, leyendo las pestañas Brackets y Peleas una vez cada
+ * una. Reemplaza la cascada que hacía el scoreboard al finalizar una
+ * pelea (brackets.list + N×brackets.get, cada uno releyendo Peleas y
+ * Atletas) por un solo round-trip al backend.
+ *
+ * Params:
+ *   evento_id   — busca en todos los brackets del evento (preferido)
+ *   bracket_id  — alternativa: si no hay evento_id, busca solo ahí
+ *   exclude_id  — id de la pelea actual; se excluye del resultado
+ *
+ * Orden (idéntico al que usaba el cliente en findAndGoToNextPending_):
+ *   ronda_idx ASC, orden del bracket en el evento ASC, numero_pelea ASC.
+ *
+ * Devuelve { ok, found, pelea_id, count_pending }.
+ */
+/**
+ * Núcleo reutilizable: encuentra el id de la siguiente pelea pendiente.
+ * Lee Brackets y Peleas una vez cada una. Devuelve
+ * { found, pelea_id, count_pending } (sin enriquecer).
+ *
+ * opts: { eventoId, bracketId, excludeId }
+ */
+function findNextPendingPeleaId_(spreadsheet, opts) {
+  opts = opts || {};
+  let eventoId = opts.eventoId ? String(opts.eventoId) : "";
+  const bracketId = opts.bracketId ? String(opts.bracketId) : "";
+  const excludeId = opts.excludeId ? String(opts.excludeId) : "";
+
+  if (!eventoId && !bracketId) {
+    throw new Error("Se requiere evento_id o bracket_id");
+  }
+
+  // Una sola lectura de Brackets. Define el orden global (bracketOrder).
+  const allBrackets = readRows_(spreadsheet, EVENTOS_TABS.brackets).map(rowToBracket_);
+
+  // Si solo tenemos bracket_id, resolvemos su evento para mantener el
+  // mismo orden global entre brackets que usaba el cliente.
+  if (!eventoId && bracketId) {
+    const owner = allBrackets.filter((b) => b.id === bracketId)[0];
+    if (owner) eventoId = owner.evento_id;
+  }
+
+  const scopeBrackets = eventoId
+    ? allBrackets.filter((b) => b.evento_id === eventoId)
+    : allBrackets.filter((b) => b.id === bracketId);
+
+  const bracketOrderById = {};
+  const inScope = {};
+  scopeBrackets.forEach((b, idx) => {
+    bracketOrderById[b.id] = idx;
+    inScope[b.id] = true;
+  });
+
+  // Una sola lectura de Peleas.
+  const pending = readRows_(spreadsheet, EVENTOS_TABS.peleas)
+    .map(rowToPelea_)
+    .filter((p) => inScope[p.bracket_id] === true)
+    .filter((p) => {
+      return (
+        String(p.id) !== String(excludeId) &&
+        p.atleta1_id &&
+        p.atleta2_id &&
+        !p.ganador_id &&
+        p.bye !== true
+      );
+    });
+
+  pending.sort((a, b) => {
+    const ra = Number(a.ronda_idx) || 0;
+    const rb = Number(b.ronda_idx) || 0;
+    if (ra !== rb) return ra - rb;
+    const oa = bracketOrderById[a.bracket_id] || 0;
+    const ob = bracketOrderById[b.bracket_id] || 0;
+    if (oa !== ob) return oa - ob;
+    return (Number(a.numero_pelea) || 0) - (Number(b.numero_pelea) || 0);
+  });
+
+  const next = pending[0] || null;
+  return {
+    found: !!next,
+    pelea_id: next ? next.id : "",
+    count_pending: pending.length,
+  };
+}
+
+function handlePeleasNext_(payload) {
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  return Object.assign(
+    { ok: true },
+    findNextPendingPeleaId_(spreadsheet, {
+      eventoId: value_(payload, "evento_id"),
+      bracketId: value_(payload, "bracket_id"),
+      excludeId: value_(payload, "exclude_id"),
+    }),
+  );
+}
+
+/**
+ * Guarda el resultado de una pelea Y devuelve la siguiente pelea
+ * pendiente del evento YA ENRIQUECIDA, en un solo round-trip.
+ *
+ * Reemplaza la secuencia que hacía el cliente en vivo:
+ *   peleas.update → peleas.next → (navegar) → peleas.get
+ * por una sola llamada. El cliente solo navega y pinta con next_pelea.
+ *
+ * Devuelve:
+ *   { ok, pelea, next_found, next_pelea_id, next_count_pending, next_pelea }
+ */
+function handlePeleasFinalize_(payload) {
+  // 1. Guardar el resultado (misma validación y auto-advance del ganador
+  //    a la siguiente ronda que peleas.update).
+  const updated = handlePeleasUpdate_(payload);
+  const pelea = updated.pelea;
+
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+
+  // 2. Buscar la siguiente pendiente del evento (resolviendo el evento a
+  //    partir del bracket de esta pelea). Se corre DESPUÉS del update para
+  //    respetar el auto-advance (p.ej. la final que recién quedó lista).
+  const next = findNextPendingPeleaId_(spreadsheet, {
+    bracketId: pelea.bracket_id,
+    excludeId: pelea.id,
+  });
+
+  // 3. Enriquecer la siguiente para que el cliente no haga otro peleas.get.
+  let nextPelea = null;
+  if (next.found && next.pelea_id) {
+    const { row } = findRowById_(spreadsheet, EVENTOS_TABS.peleas, next.pelea_id);
+    if (row) nextPelea = enrichPelea_(spreadsheet, rowToPelea_(row));
+  }
+
+  return {
+    ok: true,
+    pelea: pelea,
+    next_found: next.found,
+    next_pelea_id: next.pelea_id,
+    next_count_pending: next.count_pending,
+    next_pelea: nextPelea,
+  };
 }
 
 /* ============================================================

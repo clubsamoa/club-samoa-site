@@ -51,19 +51,49 @@
     state.error = null;
     render_();
 
-    // Paso 1: ¿hay brackets confirmados ya?
+    // Paso 1 — fast path: un SOLO request trae todos los brackets con
+    // sus peleas ya enriquecidas. Reemplaza brackets.list + N×brackets.get
+    // (que Apps Script serializa). Si el backend no tiene brackets.listfull
+    // desplegado, caemos al método clásico de abajo.
+    try {
+      var resFull = await root.api.get("brackets.listfull", {
+        evento_id: state.eventoId,
+      });
+      if (resFull && resFull.ok) {
+        var full = resFull.brackets || [];
+        if (full.length > 0) {
+          state.brackets = full;
+          state.bracketsDetail = full;
+          state.mode = "live";
+          render_();
+        } else {
+          // Confirmado: aún no hay brackets → preview (sin reintentar list).
+          await loadPreview_();
+        }
+        return;
+      }
+    } catch (fullErr) {
+      console.warn(
+        "[brackets] brackets.listfull no disponible, uso método clásico:",
+        fullErr,
+      );
+    }
+
+    // Paso 1 (clásico): ¿hay brackets confirmados ya?
     try {
       var resB = await root.api.get("brackets.list", { evento_id: state.eventoId });
       var lista = (resB && resB.brackets) || [];
       if (lista.length > 0) {
-        // LIVE — cargar detalle de cada bracket
+        // LIVE — cargar el detalle de todos los brackets en paralelo.
         state.brackets = lista;
-        var details = [];
-        for (var i = 0; i < lista.length; i += 1) {
-          var d = await root.api.get("brackets.get", { id: lista[i].id });
-          details.push(d.bracket);
-        }
-        state.bracketsDetail = details;
+        var detailResults = await Promise.all(
+          lista.map(function (b) {
+            return root.api.get("brackets.get", { id: b.id });
+          }),
+        );
+        state.bracketsDetail = detailResults.map(function (d) {
+          return d.bracket;
+        });
         state.mode = "live";
         render_();
         return;
@@ -74,6 +104,10 @@
     }
 
     // Paso 2: PREVIEW — cargar inscripciones
+    await loadPreview_();
+  }
+
+  async function loadPreview_() {
     try {
       var resI = await root.api.get("inscripciones.list", { evento_id: state.eventoId });
       state.inscripciones = (resI && resI.inscripciones) || [];
