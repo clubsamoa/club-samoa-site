@@ -56,14 +56,18 @@
       var resB = await root.api.get("brackets.list", { evento_id: state.eventoId });
       var lista = (resB && resB.brackets) || [];
       if (lista.length > 0) {
-        // LIVE — cargar detalle de cada bracket
+        // LIVE — cargar el detalle de todos los brackets en paralelo.
+        // (Antes era un waterfall secuencial: con N brackets eran N
+        // round-trips en serie contra Apps Script, ~N×latencia.)
         state.brackets = lista;
-        var details = [];
-        for (var i = 0; i < lista.length; i += 1) {
-          var d = await root.api.get("brackets.get", { id: lista[i].id });
-          details.push(d.bracket);
-        }
-        state.bracketsDetail = details;
+        var detailResults = await Promise.all(
+          lista.map(function (b) {
+            return root.api.get("brackets.get", { id: b.id });
+          }),
+        );
+        state.bracketsDetail = detailResults.map(function (d) {
+          return d.bracket;
+        });
         state.mode = "live";
         render_();
         return;

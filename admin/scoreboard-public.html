@@ -80,13 +80,20 @@
           }
         });
 
-        // Polling como salvavidas final (250ms)
-        setInterval(pollLocal_, 250);
+        // Polling local como salvavidas (el sync instantáneo va por
+        // BroadcastChannel + storage event; esto solo cubre el caso raro
+        // de que ambos fallen). 500ms es suficiente: el marcador cambia
+        // como mucho 1×/segundo.
+        setInterval(pollLocal_, 500);
 
-        // Re-fetch del backend cada 30s (por si la pelea fue finalizada / reabierta).
+        // Re-fetch del backend como red de seguridad por si se perdió el
+        // mensaje "finalized" del BroadcastChannel. Antes era cada 25s y
+        // con varias pantallas abiertas saturaba Apps Script, metiendo
+        // latencia a las acciones reales del operador. La finalización ya
+        // se transmite al instante por BroadcastChannel, así que 90s basta.
         setInterval(function () {
-          if (peleaId && Date.now() - lastBackendFetch > 25000) loadFromBackend_();
-        }, 5000);
+          if (peleaId && Date.now() - lastBackendFetch > 90000) loadFromBackend_();
+        }, 15000);
 
         // Modo evento: setup canal del evento y resolver pelea activa inicial
         if (eventoId) {

@@ -1244,6 +1244,32 @@
     }
 
     try {
+      // Fast path: endpoint dedicado que resuelve la próxima pelea en el
+      // servidor con un solo round-trip (en vez de brackets.list + N×
+      // brackets.get). Si el backend todavía no tiene esta acción
+      // desplegada, caemos al método clásico de abajo sin romper nada.
+      try {
+        var nextRes = await root.api.get("peleas.next", {
+          evento_id: eventoId || undefined,
+          bracket_id: bracketId || undefined,
+          exclude_id: state.peleaId,
+        });
+        if (nextRes && nextRes.ok) {
+          if (nextRes.found && nextRes.pelea_id) {
+            window.location.href =
+              "./scoreboard.html?pelea_id=" + encodeURIComponent(nextRes.pelea_id);
+            return true;
+          }
+          // Respondió bien y no hay pendientes en todo el evento.
+          return handleNoMorePending_(opts, eventoId, bracketId);
+        }
+      } catch (fastErr) {
+        console.warn(
+          "[scoreboard] peleas.next no disponible, uso método clásico:",
+          fastErr,
+        );
+      }
+
       var allPeleas = [];
 
       if (eventoId) {

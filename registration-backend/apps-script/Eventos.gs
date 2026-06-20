@@ -30,7 +30,7 @@
  */
 
 const CLUB_SAMOA_EVENTOS = {
-  version: "0.9.0",
+  version: "0.10.0",
   spreadsheetIdProperty: "CLUB_SAMOA_EVENTOS_SPREADSHEET_ID",
   spreadsheetName: "Club Samoa - Eventos MMA",
 };
@@ -332,6 +332,8 @@ function routeAction_(action, payload) {
       return handlePeleasUpdate_(payload);
     case "peleas.get":
       return handlePeleasGet_(payload);
+    case "peleas.next":
+      return handlePeleasNext_(payload);
 
     default:
       throw new Error("Acción no reconocida: " + action);
@@ -1886,6 +1888,88 @@ function handlePeleasGet_(payload) {
   }
 
   return { ok: true, pelea: pelea };
+}
+
+/**
+ * Encuentra la siguiente pelea pendiente del evento (o de un bracket) en
+ * UNA sola llamada, leyendo las pestañas Brackets y Peleas una vez cada
+ * una. Reemplaza la cascada que hacía el scoreboard al finalizar una
+ * pelea (brackets.list + N×brackets.get, cada uno releyendo Peleas y
+ * Atletas) por un solo round-trip al backend.
+ *
+ * Params:
+ *   evento_id   — busca en todos los brackets del evento (preferido)
+ *   bracket_id  — alternativa: si no hay evento_id, busca solo ahí
+ *   exclude_id  — id de la pelea actual; se excluye del resultado
+ *
+ * Orden (idéntico al que usaba el cliente en findAndGoToNextPending_):
+ *   ronda_idx ASC, orden del bracket en el evento ASC, numero_pelea ASC.
+ *
+ * Devuelve { ok, found, pelea_id, count_pending }.
+ */
+function handlePeleasNext_(payload) {
+  const spreadsheet = getOrCreateEventosSpreadsheet_();
+  let eventoId = value_(payload, "evento_id");
+  const bracketId = value_(payload, "bracket_id");
+  const excludeId = value_(payload, "exclude_id");
+
+  if (!eventoId && !bracketId) {
+    throw new Error("Se requiere evento_id o bracket_id");
+  }
+
+  // Una sola lectura de Brackets. Define el orden global (bracketOrder)
+  // que se usa como segundo criterio de desempate.
+  const allBrackets = readRows_(spreadsheet, EVENTOS_TABS.brackets).map(rowToBracket_);
+
+  // Si solo nos pasaron bracket_id, resolvemos su evento para mantener el
+  // mismo orden global entre brackets que usaba el cliente.
+  if (!eventoId && bracketId) {
+    const owner = allBrackets.filter((b) => b.id === bracketId)[0];
+    if (owner) eventoId = owner.evento_id;
+  }
+
+  const scopeBrackets = eventoId
+    ? allBrackets.filter((b) => b.evento_id === eventoId)
+    : allBrackets.filter((b) => b.id === bracketId);
+
+  const bracketOrderById = {};
+  const inScope = {};
+  scopeBrackets.forEach((b, idx) => {
+    bracketOrderById[b.id] = idx;
+    inScope[b.id] = true;
+  });
+
+  // Una sola lectura de Peleas.
+  const pending = readRows_(spreadsheet, EVENTOS_TABS.peleas)
+    .map(rowToPelea_)
+    .filter((p) => inScope[p.bracket_id] === true)
+    .filter((p) => {
+      return (
+        String(p.id) !== String(excludeId) &&
+        p.atleta1_id &&
+        p.atleta2_id &&
+        !p.ganador_id &&
+        p.bye !== true
+      );
+    });
+
+  pending.sort((a, b) => {
+    const ra = Number(a.ronda_idx) || 0;
+    const rb = Number(b.ronda_idx) || 0;
+    if (ra !== rb) return ra - rb;
+    const oa = bracketOrderById[a.bracket_id] || 0;
+    const ob = bracketOrderById[b.bracket_id] || 0;
+    if (oa !== ob) return oa - ob;
+    return (Number(a.numero_pelea) || 0) - (Number(b.numero_pelea) || 0);
+  });
+
+  const next = pending[0] || null;
+  return {
+    ok: true,
+    found: !!next,
+    pelea_id: next ? next.id : "",
+    count_pending: pending.length,
+  };
 }
 
 /* ============================================================
