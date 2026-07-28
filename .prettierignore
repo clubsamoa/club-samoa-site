@@ -1,0 +1,6 @@
+legacy/
+registration-backend/
+node_modules/
+.next/
+package-lock.json
+*.md
