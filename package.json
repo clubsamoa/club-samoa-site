@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run lint && npm run typecheck && npm run format:check"
+    "check": "npm run lint && npm run typecheck && npm run format:check",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "next": "16.2.12",
@@ -28,7 +30,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "prettier": "^3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "sharp": "^0.35.3"
