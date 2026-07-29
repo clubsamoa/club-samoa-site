@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Anton, Inter, Oswald, Teko } from "next/font/google";
+import Header from "@/components/site/Header";
+import SmokeBackground from "@/components/site/SmokeBackground";
 import "./globals.css";
 
 // Mismas familias y pesos que cargaba el sitio estático desde Google Fonts
@@ -53,7 +55,15 @@ export default function RootLayout({
       lang="es"
       className={`${anton.variable} ${oswald.variable} ${inter.variable} ${teko.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {/* El canvas solo anima en cliente (useEffect); su SSR es un <canvas>
+            vacío, así que no necesita dynamic/ssr:false. */}
+        <SmokeBackground />
+        <div className="page-shell">
+          <Header />
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
