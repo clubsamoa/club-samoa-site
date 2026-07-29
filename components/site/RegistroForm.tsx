@@ -1,7 +1,7 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- paridad 1:1 con legacy; migra a next/image en N07 */
 import { startTransition, useActionState, useEffect, useRef } from "react";
+import SocialIcon from "@/components/site/SocialIcon";
 import { submitRegistro } from "@/app/alumnos/actions";
 import { WHATSAPP_URL } from "@/lib/constants";
 import type { FormVariant, RegistroState } from "@/lib/registros";
@@ -126,12 +126,7 @@ export default function RegistroForm({
           target="_blank"
           rel="noreferrer"
         >
-          <img
-            className="social-icon"
-            src="/icon-whatsapp.png"
-            alt=""
-            aria-hidden="true"
-          />
+          <SocialIcon type="whatsapp" />
           Enviar por WhatsApp
         </a>
       </article>

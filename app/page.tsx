@@ -1,5 +1,6 @@
-/* eslint-disable @next/next/no-img-element -- paridad 1:1 con legacy; migra a next/image en N07 */
+import Image from "next/image";
 import ScheduleTimeline from "@/components/site/ScheduleTimeline";
+import SocialIcon from "@/components/site/SocialIcon";
 import {
   FACEBOOK_URL,
   INSTAGRAM_URL,
@@ -30,12 +31,7 @@ export default function Home() {
               target="_blank"
               rel="noreferrer"
             >
-              <img
-                className="social-icon"
-                src="/icon-whatsapp.png"
-                alt=""
-                aria-hidden="true"
-              />
+              <SocialIcon type="whatsapp" />
               Contáctanos por WhatsApp
             </a>
             <a
@@ -44,12 +40,7 @@ export default function Home() {
               target="_blank"
               rel="noreferrer"
             >
-              <img
-                className="social-icon"
-                src="/icon-instagram.png"
-                alt=""
-                aria-hidden="true"
-              />
+              <SocialIcon type="instagram" />
               Instagram
             </a>
             <a
@@ -58,22 +49,21 @@ export default function Home() {
               target="_blank"
               rel="noreferrer"
             >
-              <img
-                className="social-icon"
-                src="/icon-facebook.png"
-                alt=""
-                aria-hidden="true"
-              />
+              <SocialIcon type="facebook" />
               Facebook
             </a>
           </div>
         </div>
         <div className="hero-panel">
           <div className="hero-logo-wrap">
-            <img
+            <Image
               className="hero-logo hero-photo"
               src="/images/valeria.jpg"
               alt="Valeria entrenando en Club Samoa"
+              width={1440}
+              height={959}
+              priority
+              sizes="(max-width: 980px) 100vw, 40vw"
             />
           </div>
           <div className="hero-stat">
@@ -118,10 +108,13 @@ export default function Home() {
             Agrupamos las clases por días y disciplina para que alumnos y
             familias identifiquen rápido el horario que mejor les funciona.
           </p>
-          <img
+          <Image
             className="section-feature-image schedule-feature-image"
             src="/images/class.jpeg"
             alt="Clases en Club Samoa"
+            width={1600}
+            height={1067}
+            sizes="(max-width: 980px) 100vw, 45vw"
           />
           <div className="schedule-image-cta">
             <a
@@ -130,12 +123,7 @@ export default function Home() {
               target="_blank"
               rel="noreferrer"
             >
-              <img
-                className="social-icon"
-                src="/icon-whatsapp.png"
-                alt=""
-                aria-hidden="true"
-              />
+              <SocialIcon type="whatsapp" />
               Agenda tu clase muestra
             </a>
           </div>
@@ -161,12 +149,7 @@ export default function Home() {
             target="_blank"
             rel="noreferrer"
           >
-            <img
-              className="social-icon"
-              src="/icon-whatsapp.png"
-              alt=""
-              aria-hidden="true"
-            />
+            <SocialIcon type="whatsapp" />
             Escribir por WhatsApp
           </a>
           <a
@@ -175,12 +158,7 @@ export default function Home() {
             target="_blank"
             rel="noreferrer"
           >
-            <img
-              className="social-icon"
-              src="/icon-instagram.png"
-              alt=""
-              aria-hidden="true"
-            />
+            <SocialIcon type="instagram" />
             Ir a Instagram
           </a>
           <a
@@ -189,12 +167,7 @@ export default function Home() {
             target="_blank"
             rel="noreferrer"
           >
-            <img
-              className="social-icon"
-              src="/icon-facebook.png"
-              alt=""
-              aria-hidden="true"
-            />
+            <SocialIcon type="facebook" />
             Ir a Facebook
           </a>
         </div>

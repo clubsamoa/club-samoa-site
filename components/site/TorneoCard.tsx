@@ -1,4 +1,5 @@
-/* eslint-disable @next/next/no-img-element -- paridad 1:1 con legacy; migra a next/image en N07 */
+import Image from "next/image";
+import SocialIcon from "@/components/site/SocialIcon";
 import { WHATSAPP_URL } from "@/lib/constants";
 import type { Torneo } from "@/content/torneos";
 
@@ -6,10 +7,13 @@ import type { Torneo } from "@/content/torneos";
 export default function TorneoCard({ torneo }: { torneo: Torneo }) {
   return (
     <article className="event-card featured-event-card">
-      <img
+      <Image
         className={`event-poster${torneo.posterLogo ? " event-poster--logo" : ""}`}
         src={torneo.poster}
         alt={torneo.posterAlt}
+        width={torneo.posterWidth}
+        height={torneo.posterHeight}
+        sizes="(max-width: 980px) 100vw, 33vw"
       />
       <div className="event-copy">
         <p className="event-date">{torneo.fecha}</p>
@@ -23,12 +27,7 @@ export default function TorneoCard({ torneo }: { torneo: Torneo }) {
           target="_blank"
           rel="noreferrer"
         >
-          <img
-            className="social-icon"
-            src="/icon-whatsapp.png"
-            alt=""
-            aria-hidden="true"
-          />
+          <SocialIcon type="whatsapp" />
           Registro por WhatsApp
         </a>
       )}
