@@ -1,4 +1,7 @@
 legacy/
+# CSS portados 1:1 desde legacy — deben mantenerse diff-equivalentes (ver N02)
+app/globals.css
+app/admin.css
 registration-backend/
 node_modules/
 .next/
