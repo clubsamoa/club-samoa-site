@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element -- paridad 1:1 con legacy; migra a next/image en N07 */
+import SocialIcon from "@/components/site/SocialIcon";
 import { INSCRIPCION, PLANES } from "@/content/precios";
 import { WHATSAPP_URL } from "@/lib/constants";
 
@@ -25,12 +25,7 @@ export default function PreciosGrid() {
                 target="_blank"
                 rel="noreferrer"
               >
-                <img
-                  className="social-icon"
-                  src="/icon-whatsapp.png"
-                  alt=""
-                  aria-hidden="true"
-                />
+                <SocialIcon type="whatsapp" />
                 {plan.cta.label}
               </a>
             </div>

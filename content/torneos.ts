@@ -7,6 +7,9 @@ export type Torneo = {
   sede: string;
   poster: string;
   posterAlt: string;
+  /** Dimensiones intrínsecas del archivo (para next/image, evita CLS). */
+  posterWidth: number;
+  posterHeight: number;
   /** Clase extra del póster (ej. logos que no son póster completo). */
   posterLogo?: boolean;
   /** Si es true, muestra el botón de registro por WhatsApp. */
@@ -19,6 +22,8 @@ export const TORNEOS_PROXIMOS: Torneo[] = [
     titulo: "Campeonato Nacional de Artes Marciales Mixtas - FAMM",
     sede: "Córdoba, Veracruz.",
     poster: "/images/campeonato-nacional-2026.jpg",
+    posterWidth: 845,
+    posterHeight: 315,
     posterAlt:
       "Poster del Campeonato Nacional de Artes Marciales Mixtas 2026 - Córdoba, Veracruz",
     registroAbierto: true,
@@ -28,6 +33,8 @@ export const TORNEOS_PROXIMOS: Torneo[] = [
     titulo: "Campeonato Mundial Juvenil IMMAF 2026",
     sede: "Abu Dhabi, Emiratos Árabes Unidos.",
     poster: "/images/2026-immaf-youth-world-championships.jpg",
+    posterWidth: 845,
+    posterHeight: 315,
     posterAlt: "Poster del Campeonato Mundial Juvenil IMMAF 2026 - Abu Dhabi",
     registroAbierto: true,
   },
@@ -36,6 +43,8 @@ export const TORNEOS_PROXIMOS: Torneo[] = [
     titulo: "Campeonato Panamericano IMMAF 2026",
     sede: "Monterrey, México.",
     poster: "/images/2026-immaf-pan-american-championships.jpg",
+    posterWidth: 845,
+    posterHeight: 315,
     posterAlt:
       "Poster del Campeonato Panamericano IMMAF 2026 - Monterrey, México",
     registroAbierto: true,
@@ -45,6 +54,8 @@ export const TORNEOS_PROXIMOS: Torneo[] = [
     titulo: "Campeonato Mundial IMMAF 2026",
     sede: "Tbilisi, Georgia.",
     poster: "/images/immaf.jpg",
+    posterWidth: 2048,
+    posterHeight: 2048,
     posterAlt: "Campeonato Mundial IMMAF 2026 - Tbilisi, Georgia",
     posterLogo: true,
     registroAbierto: true,
@@ -57,6 +68,8 @@ export const TORNEOS_PASADOS: Torneo[] = [
     titulo: "Campeonato Regional de Artes Marciales Mixtas 2026",
     sede: "Monclova, Coahuila.",
     poster: "/images/regional2026.jpg",
+    posterWidth: 845,
+    posterHeight: 315,
     posterAlt: "Poster del Campeonato Regional de Artes Marciales Mixtas 2026",
     registroAbierto: false,
   },
@@ -65,6 +78,8 @@ export const TORNEOS_PASADOS: Torneo[] = [
     titulo: "Campeonato Estatal de MMA Zona Norte de Tamaulipas",
     sede: "Nuevo Laredo, Tamaulipas - Nueva Ciudad Deportiva.",
     poster: "/images/estatal-znorte2026.jpeg",
+    posterWidth: 845,
+    posterHeight: 315,
     posterAlt: "Poster del Campeonato Estatal de MMA Zona Norte de Tamaulipas",
     registroAbierto: false,
   },

@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element -- paridad 1:1 con legacy; migra a next/image en N07 */
 import type { Metadata } from "next";
+import Image from "next/image";
 import RegistroForm from "@/components/site/RegistroForm";
 import {
   DISCIPLINAS_EXAMEN_LIMA_KICK,
@@ -189,10 +189,13 @@ export default function AlumnosPage() {
       <section className="dual-layout student-section" id="uniformes">
         <div className="section-heading">
           <h2 className="section-page-title">Uniformes</h2>
-          <img
+          <Image
             className="section-feature-image"
             src="/images/uniformes-no.jpg"
             alt="Uniformes disponibles para alumnos Club Samoa"
+            width={940}
+            height={788}
+            sizes="(max-width: 980px) 100vw, 45vw"
           />
           <h3>Realiza tu pedido fácil</h3>
           <p>
@@ -271,10 +274,13 @@ export default function AlumnosPage() {
           <h2 className="section-page-title">
             Exámenes de Lima Lama y Kickboxing
           </h2>
-          <img
+          <Image
             className="section-feature-image"
             src="/images/examen26.jpg"
             alt="Exámenes de grado para alumnos Club Samoa"
+            width={1440}
+            height={1141}
+            sizes="(max-width: 980px) 100vw, 45vw"
           />
           <h3>Registro rápido para cambio de grado.</h3>
           <p>
@@ -325,10 +331,13 @@ export default function AlumnosPage() {
       >
         <div className="section-heading">
           <h2 className="section-page-title">Exámenes de MMA &amp; JiuJitsu</h2>
-          <img
+          <Image
             className="section-feature-image"
             src="/images/bjj.jpg"
             alt="Exámenes de MMA y Jiu Jitsu para alumnos Club Samoa"
+            width={1440}
+            height={1080}
+            sizes="(max-width: 980px) 100vw, 45vw"
           />
           <h3>Registro rápido para cambio de grado.</h3>
           <p>
