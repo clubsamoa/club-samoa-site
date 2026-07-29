@@ -7,7 +7,13 @@ import { TORNEOS_PASADOS, TORNEOS_PROXIMOS } from "@/content/torneos";
 export const metadata: Metadata = {
   title: "Club Samoa | Comunidad",
   description:
-    "Precios, paquetes y torneos de Club Samoa Escuela de Artes Marciales.",
+    "Precios, paquetes y torneos de Club Samoa para la comunidad de alumnos y competidores.",
+  alternates: { canonical: "/comunidad" },
+  openGraph: {
+    title: "Club Samoa | Comunidad",
+    description:
+      "Precios, paquetes y torneos de Club Samoa para la comunidad de alumnos y competidores.",
+  },
 };
 
 // Puerto de legacy/community.html — precios, torneos y eventos pasados.

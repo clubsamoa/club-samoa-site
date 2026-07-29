@@ -14,7 +14,13 @@ import {
 export const metadata: Metadata = {
   title: "Club Samoa | Portal de Alumnos",
   description:
-    "Pedidos de uniformes y registro de exámenes de grado para alumnos de Club Samoa.",
+    "Portal de alumnos de Club Samoa para uniformes y exámenes de cambio de grado.",
+  alternates: { canonical: "/alumnos" },
+  openGraph: {
+    title: "Club Samoa | Portal de Alumnos",
+    description:
+      "Pedidos de uniformes y registro de exámenes de grado para alumnos de Club Samoa.",
+  },
 };
 
 const REGISTRO_GOOGLE_FORM_URL =
