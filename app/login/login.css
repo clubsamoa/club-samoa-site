@@ -1,0 +1,43 @@
+/* Estilos del login del panel staff (N11).
+   No existen en el sitio estático, así que viven aquí en vez de en
+   globals.css: ese archivo debe seguir siendo diff-equivalente a
+   legacy/styles.css (decisión D2 del PLAN, verificado en N02).
+   Usa las variables de marca ya definidas en globals.css. */
+
+.login-main {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+  padding: 48px 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 32px;
+  border-radius: 24px;
+  border: 1px solid rgba(247, 242, 241, 0.1);
+  background: rgba(12, 9, 7, 0.72);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  text-align: left;
+}
+
+.login-card h2 {
+  margin: 0 0 12px;
+  font-family: var(--font-oswald), sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.login-copy {
+  margin: 0 0 20px;
+  color: rgba(247, 242, 241, 0.72);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.login-card .form-status {
+  margin: 0 0 16px;
+}

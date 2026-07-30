@@ -115,6 +115,7 @@ export default function Home() {
             width={1600}
             height={1067}
             sizes="(max-width: 980px) 100vw, 45vw"
+            style={{ height: "auto" }}
           />
           <div className="schedule-image-cta">
             <a
