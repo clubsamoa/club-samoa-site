@@ -202,6 +202,7 @@ export default function AlumnosPage() {
             width={940}
             height={788}
             sizes="(max-width: 980px) 100vw, 45vw"
+            style={{ height: "auto" }}
           />
           <h3>Realiza tu pedido fácil</h3>
           <p>
@@ -287,6 +288,7 @@ export default function AlumnosPage() {
             width={1440}
             height={1141}
             sizes="(max-width: 980px) 100vw, 45vw"
+            style={{ height: "auto" }}
           />
           <h3>Registro rápido para cambio de grado.</h3>
           <p>
@@ -344,6 +346,7 @@ export default function AlumnosPage() {
             width={1440}
             height={1080}
             sizes="(max-width: 980px) 100vw, 45vw"
+            style={{ height: "auto" }}
           />
           <h3>Registro rápido para cambio de grado.</h3>
           <p>
