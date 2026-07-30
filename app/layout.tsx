@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Anton, Inter, Oswald, Teko } from "next/font/google";
-import Header from "@/components/site/Header";
-import SmokeBackground from "@/components/site/SmokeBackground";
-import { clubSamoaJsonLd } from "@/lib/jsonld";
 import "./globals.css";
 
-// Mismas familias y pesos que cargaba el sitio estático desde Google Fonts
-// (ver legacy/index.html). Self-hosted vía next/font: sin requests a
-// fonts.googleapis.com y sin FOUT.
+// Layout raíz: solo <html>/<body>, fuentes y metadata base. El "chrome" de
+// cada superficie vive en su grupo de rutas:
+//   (site)    → header público, nav, fondo WebGL, JSON-LD
+//   (admin)   → shell del admin (header + sidebar), tras el gate de auth
+//   (publico) → vistas de proyección, sin chrome
+//   /login    → pantalla mínima
+
 const anton = Anton({
   weight: "400",
   subsets: ["latin"],
@@ -43,22 +44,9 @@ export const metadata: Metadata = {
   title: "Club Samoa Escuela de Artes Marciales",
   description:
     "Horarios, disciplinas y contacto de Club Samoa Escuela de Artes Marciales.",
-  alternates: { canonical: "/" },
   icons: {
     icon: "/images/logo-black.png",
     apple: "/images/logo-black.png",
-  },
-  openGraph: {
-    type: "website",
-    siteName: "Club Samoa",
-    locale: "es_MX",
-    title: "Club Samoa Escuela de Artes Marciales",
-    description:
-      "Lima Lama, Kickboxing, Muay Thai, MMA y Jiu Jitsu en Ciudad Madero, Tamaulipas. Desde 1983.",
-    images: [{ url: "/images/valeria.jpg", width: 1440, height: 959 }],
-  },
-  twitter: {
-    card: "summary_large_image",
   },
 };
 
@@ -72,21 +60,7 @@ export default function RootLayout({
       lang="es"
       className={`${anton.variable} ${oswald.variable} ${inter.variable} ${teko.variable}`}
     >
-      <body>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(clubSamoaJsonLd(SITE_URL)),
-          }}
-        />
-        {/* El canvas solo anima en cliente (useEffect); su SSR es un <canvas>
-            vacío, así que no necesita dynamic/ssr:false. */}
-        <SmokeBackground />
-        <div className="page-shell">
-          <Header />
-          {children}
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
