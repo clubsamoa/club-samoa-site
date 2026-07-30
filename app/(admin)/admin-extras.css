@@ -1,0 +1,109 @@
+/* Estilos del admin que NO existen en legacy/admin/styles-admin.css.
+   Viven aquí para que app/admin.css siga siendo diff-equivalente al original
+   (misma disciplina que globals.css, decisión D2 del PLAN).
+
+   Contiene:
+     - el spinner global (antes lo inyectaba api.js con un <style> en JS)
+     - el toaster (antes eran alert() nativos)
+     - el correo de la sesión en el header (no existía: no había login) */
+
+/* --- Spinner global (puerto de admin/js/api.js:76-95) --- */
+.cs-api-spinner {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #f7f2f1;
+  border-radius: 50%;
+  z-index: 99999;
+  animation: cs-api-spin 0.8s linear infinite;
+  display: none;
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.cs-api-spinner.is-visible {
+  display: block;
+}
+
+@keyframes cs-api-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-api-spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* --- Toaster --- */
+.admin-toaster {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 99998;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+
+.admin-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(247, 242, 241, 0.14);
+  background: #17110f;
+  color: #f7f2f1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.admin-toast--error {
+  border-left: 3px solid #f40706;
+}
+
+.admin-toast--success {
+  border-left: 3px solid #4caf50;
+}
+
+.admin-toast-close {
+  margin-left: auto;
+  flex: 0 0 auto;
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 0 2px;
+}
+
+.admin-toast-close:hover,
+.admin-toast-close:focus-visible {
+  opacity: 1;
+}
+
+/* --- Correo de la sesión en el header --- */
+.admin-header-user {
+  color: rgba(247, 242, 241, 0.55);
+  font-size: 0.8rem;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .admin-header-user {
+    display: none;
+  }
+}

@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useEffect, useRef } from "react";
 import SocialIcon from "@/components/site/SocialIcon";
-import { submitRegistro } from "@/app/alumnos/actions";
+import { submitRegistro } from "@/app/(site)/alumnos/actions";
 import { WHATSAPP_URL } from "@/lib/constants";
 import type { FormVariant, RegistroState } from "@/lib/registros";
 

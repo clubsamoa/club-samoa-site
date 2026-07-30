@@ -27,3 +27,6 @@ docs/visual-baseline/
 
 # debug
 npm-debug.log*
+
+# Duplicados de config local de Claude Code (macOS crea "archivo 2.json")
+.claude/settings.local*[0-9].json
