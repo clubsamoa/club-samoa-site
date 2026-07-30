@@ -10,6 +10,8 @@ import {
   isReadAction,
   isWriteAction,
 } from "@/lib/actions-allowlist";
+import { auth } from "@/lib/auth";
+import { isAllowedEmail } from "@/lib/auth-allowlist";
 
 // Proxy hacia el Apps Script de Eventos MMA.
 //
@@ -102,9 +104,16 @@ export async function POST(
     );
   }
 
-  // TODO(N11): exigir sesión aquí para toda WRITE_ACTIONS. El middleware
-  // protege páginas, no esta API — hay que verificar la sesión también en
-  // este punto o el admin queda escribible sin login.
+  // Toda escritura exige sesión. Esta comprobación NO es redundante con el
+  // middleware: el middleware protege páginas, y esta API es alcanzable
+  // directamente con curl. Sin esto, el admin queda escribible sin login.
+  const session = await auth();
+  if (!isAllowedEmail(session?.user?.email)) {
+    return NextResponse.json(
+      { ok: false, error: "No autorizado." },
+      { status: 401, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   let payload: Record<string, unknown> = {};
   try {
