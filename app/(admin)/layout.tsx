@@ -36,9 +36,9 @@ export default async function AdminLayout({
             </div>
           </Link>
           <div className="admin-header-actions">
-            {session?.user?.email && (
+            {session && (
               <span className="admin-header-user" title="Sesión activa">
-                {session.user.email}
+                Staff
               </span>
             )}
             <Link

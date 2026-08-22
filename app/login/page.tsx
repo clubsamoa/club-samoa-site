@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { auth, signIn } from "@/lib/auth";
+import { auth } from "@/lib/auth";
+import { hayPasswordConfigurada } from "@/lib/auth-password";
+import LoginForm from "@/components/admin/LoginForm";
 import "./login.css";
 
 export const metadata: Metadata = {
@@ -8,26 +10,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Errores que devuelve Auth.js en ?error=. AccessDenied es el caso de un
-// correo fuera de la allowlist: merece un mensaje claro, no uno genérico.
-function mensajeError(error: string | undefined): string | null {
-  if (!error) return null;
-  if (error === "AccessDenied") {
-    return "Esa cuenta de Google no tiene acceso al panel. Si crees que debería tenerlo, pide que agreguen tu correo.";
-  }
-  return "No se pudo completar el acceso. Intenta de nuevo.";
-}
-
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; error?: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
-  const { from, error } = await searchParams;
+  const { from } = await searchParams;
   const session = await auth();
   if (session) redirect(from && from.startsWith("/admin") ? from : "/admin");
 
-  const mensaje = mensajeError(error);
+  const configurada = hayPasswordConfigurada();
 
   return (
     <main className="login-main">
@@ -35,28 +27,18 @@ export default async function LoginPage({
         <p className="eyebrow">Acceso staff</p>
         <h2>Panel de administración</h2>
         <p className="login-copy">
-          Entra con la cuenta de Google autorizada del club para gestionar
-          atletas, eventos y brackets.
+          Escribe la contraseña del staff para gestionar atletas, eventos y
+          brackets.
         </p>
 
-        {mensaje && (
+        {configurada ? (
+          <LoginForm from={from} />
+        ) : (
           <p className="form-status is-error" role="alert">
-            {mensaje}
+            Falta configurar <code>ADMIN_PASSWORD_HASH</code> en el entorno.
+            Mientras no exista, nadie puede entrar.
           </p>
         )}
-
-        <form
-          action={async () => {
-            "use server";
-            await signIn("google", {
-              redirectTo: from && from.startsWith("/admin") ? from : "/admin",
-            });
-          }}
-        >
-          <button className="button button-primary" type="submit">
-            Entrar con Google
-          </button>
-        </form>
       </section>
     </main>
   );

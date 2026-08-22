@@ -1,5 +1,6 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import authConfig from "@/lib/auth.config";
 
 // Protege /admin/*. Las vistas públicas de proyección (/scoreboard/* y
 // /bracket/*) quedan FUERA a propósito: se proyectan en pantalla durante los
@@ -8,7 +9,13 @@ import { auth } from "@/lib/auth";
 // El proxy protege páginas. Las escrituras de /api/eventos/* verifican la
 // sesión por su cuenta en el Route Handler — no basta con esto.
 //
+// Se instancia con auth.config (sin proveedores) porque este archivo corre en
+// el runtime edge y bcrypt no funciona ahí. Para decidir "hay sesión o no"
+// basta con leer el JWT, que es lo que hace esta instancia.
+//
 // Nota: en Next 16 esta convención se llama proxy.ts (antes middleware.ts).
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((request) => {
   if (!request.auth) {
