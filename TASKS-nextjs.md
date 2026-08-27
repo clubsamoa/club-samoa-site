@@ -340,8 +340,8 @@ Plan de ejecución de `PLAN-nextjs.md`. Cada tarea es independientemente testabl
 
 **No es una tarea de código.** Antes de tocar el admin:
 
-1. Crear el proyecto en Vercel apuntando a `feat/nextjs-migration`.
-2. Configurar `APPS_SCRIPT_REGISTROS_URL` y `NEXT_PUBLIC_SITE_URL` en el entorno de preview.
+1. Usar el proyecto de Netlify existente (`clubsamoa`), apuntando el deploy a la rama de trabajo.
+2. Configurar `APPS_SCRIPT_REGISTROS_URL`, `APPS_SCRIPT_EVENTOS_URL`, `AUTH_SECRET` y `NEXT_PUBLIC_SITE_URL` en las variables de entorno de Netlify.
 3. Validar en la URL de preview: las 3 páginas, los 3 formularios contra la Sheet real, Lighthouse, y revisión en un móvil de verdad.
 4. **Dejarlo correr una semana** antes de seguir. Si algo del sitio público falla, se descubre ahora y no durante la migración del admin.
 
@@ -450,7 +450,7 @@ Las URLs de Apps Script viven en `legacy/registration-config.js`, versionado en 
 
 1. Abrir cada proyecto de Apps Script → **Implementar → Gestionar implementaciones → Nueva versión**, generando una URL `/exec` nueva.
 2. **Archivar la implementación anterior** para que la URL vieja deje de responder.
-3. Poner las URLs nuevas **solo** en variables de entorno (`.env.local` y Vercel). Nunca en el repo.
+3. Poner las URLs nuevas **solo** en variables de entorno (`.env.local` y Netlify). Nunca en el repo.
 4. Verificar que la URL vieja devuelve error y la nueva funciona.
 
 > Mover los endpoints a variables de entorno **no sirve de nada** si no se rotan: las viejas ya están publicadas.
@@ -703,7 +703,7 @@ Las URLs de Apps Script viven en `legacy/registration-config.js`, versionado en 
 **Estimación:** L · **Depende de:** N19, N20
 
 **Qué hacer:**
-1. Variables de entorno de **producción** en Vercel, con las URLs de Apps Script **ya rotadas** (N11) y `NEXT_PUBLIC_SITE_URL` con el dominio real.
+1. Variables de entorno de **producción** en Netlify, con las URLs de Apps Script **ya rotadas** (N11) y `NEXT_PUBLIC_SITE_URL` con el dominio real.
 2. Añadir el URI de redirección OAuth de producción en Google Cloud Console.
 3. **Ensayo general en el preview deploy**, con checklist:
    - [ ] Las 3 páginas públicas en móvil y escritorio.
@@ -713,15 +713,15 @@ Las URLs de Apps Script viven en `legacy/registration-config.js`, versionado en 
    - [ ] Vista pública del scoreboard en un proyector de verdad.
    - [ ] Lighthouse ≥ 90 en las 3 públicas.
 4. Merge de `feat/nextjs-migration` a `main`.
-5. **Corte de DNS** al proyecto de Vercel. Hacerlo en un momento de bajo tráfico y **nunca la víspera de un evento**.
+5. **Corte de DNS** al dominio real (el proyecto de Netlify ya existe). Hacerlo en un momento de bajo tráfico y **nunca la víspera de un evento**.
 6. Verificar en producción los 10 redirects 301 de N08.
-7. Activar Vercel Analytics y Speed Insights.
+7. Activar Netlify Analytics.
 8. Enviar el sitemap en Google Search Console y vigilar errores de rastreo durante 2 semanas.
 9. **`legacy/` se conserva.** No se borra en esta tarea.
 
 **Criterio de aceptación:** el dominio sirve la app Next, los formularios funcionan y el admin es accesible solo con sesión.
 
-**Commit sugerido:** `chore(deploy): cutover a vercel`
+**Commit sugerido:** `chore(deploy): cutover a netlify`
 
 ---
 
@@ -778,4 +778,4 @@ git push -u origin next/NN-slug
 git checkout main && git merge feat/nextjs-migration
 ```
 
-**Regla:** `main` debe poder desplegarse en todo momento. Mientras la migración esté a medias, `main` sigue sirviendo el sitio estático actual; el trabajo nuevo vive en `feat/nextjs-migration` y se valida en los preview deploys de Vercel.
+**Regla:** `main` debe poder desplegarse en todo momento. Mientras la migración esté a medias, `main` sigue sirviendo el sitio estático actual; el trabajo nuevo vive en `feat/nextjs-migration` y se valida en los preview deploys de Netlify.

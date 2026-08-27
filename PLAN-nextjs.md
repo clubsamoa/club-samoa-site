@@ -95,7 +95,7 @@ El sitio estático y la app Next conviven durante la migración: primero se leva
 | Tests unitarios | **Vitest** | Sustituye los `.test.html` |
 | E2E | **Playwright** | Smoke de rutas críticas |
 | Lint / formato | ESLint (`next/core-web-vitals`) + Prettier | |
-| Hosting | **Vercel** | Necesario para `next/image` y Route Handlers |
+| Hosting | **Netlify** | Ya alojaba el sitio del club (`clubsamoa.netlify.app`); su runtime de Next.js soporta `next/image`, Route Handlers y proxy — verificado en producción |
 | Backend de datos | Apps Script + Sheets (sin cambios) | D1 |
 
 ---
@@ -161,7 +161,7 @@ club-samoa-site/
 | `admin/js/bracket-svg.js` | `components/admin/BracketSvg.tsx` — de `createElementNS` a JSX |
 | `admin/js/scoreboard.js` (1,697 líneas) | `components/admin/Scoreboard/*` — troceado en 4–5 componentes |
 | `admin/js/*.test.html` | `lib/__tests__/*.test.ts` (Vitest) |
-| `registration-config.js` | `.env.local` / variables de entorno de Vercel |
+| `registration-config.js` | `.env.local` / variables de entorno de Netlify |
 
 ### Rutas y redirecciones
 
@@ -282,7 +282,7 @@ Rama de integración: **`feat/nextjs-migration`**. Cada tarea sale de ahí y vue
 **Pruebas:** Rich Results Test valida el JSON-LD; `curl -I /students.html` → `301` a `/alumnos`; `/sitemap.xml` lista las 3 rutas públicas.
 **Commit:** `feat(next): metadata, json-ld y redirects 301`
 
-> **🚦 Hito 1 — el sitio público ya se puede desplegar.** Deploy a Vercel en un dominio de preview, validación de una semana, y recién entonces se sigue con el admin.
+> **🚦 Hito 1 — el sitio público ya se puede desplegar.** Deploy a Netlify en un dominio de preview, validación de una semana, y recién entonces se sigue con el admin.
 
 ---
 
@@ -322,7 +322,7 @@ Rama de integración: **`feat/nextjs-migration`**. Cada tarea sale de ahí y vue
 **Pruebas:** `/admin/eventos` sin sesión → redirect a `/login`; correo fuera de la allowlist → acceso denegado; `POST /api/eventos/atletas.create` sin cookie → 401; `/scoreboard/X` sigue abierto sin sesión.
 **Commit:** `feat(next): auth.js con allowlist protegiendo el admin`
 
-> **🔐 Al terminar N11: redesplegar los dos Web Apps de Apps Script con URL nueva** y meter las nuevas URLs solo en las variables de entorno de Vercel. Las URLs actuales están en `registration-config.js`, versionado en un repo público — hay que asumirlas comprometidas. Este paso es el que realmente cierra el agujero.
+> **🔐 Al terminar N11: redesplegar los dos Web Apps de Apps Script con URL nueva** y meter las nuevas URLs solo en las variables de entorno de Netlify. Las URLs actuales están en `registration-config.js`, versionado en un repo público — hay que asumirlas comprometidas. Este paso es el que realmente cierra el agujero.
 
 ---
 
@@ -410,15 +410,15 @@ Auditoría axe en las 3 páginas públicas + admin; foco visible y orden de tabu
 #### N21 · Deploy y corte de dominio
 **Branch:** `next/21-deploy`
 
-1. Proyecto en Vercel; variables de entorno de producción (con las URLs de Apps Script **rotadas**, ver N11).
+1. Proyecto en Netlify; variables de entorno de producción (con las URLs de Apps Script **rotadas**, ver N11).
 2. Preview deploy revisado a fondo: las 3 páginas públicas, los 3 formularios contra la Sheet real, un evento de prueba completo de punta a punta.
-3. Apuntar el dominio a Vercel. Verificar los 301 de §5 en producción.
-4. Vercel Analytics + Speed Insights.
+3. Apuntar el dominio real a Netlify. Verificar los 301 de §5 en producción.
+4. Netlify Analytics + Speed Insights.
 5. Merge de `feat/nextjs-migration` a `main`.
 6. **`legacy/` se conserva una semana más** y se borra en un commit aparte, ya con tráfico real validado.
 
 **Pruebas:** Lighthouse ≥ 90 en las 3 públicas; formularios funcionando en producción; login del admin con las cuentas reales; un evento real operado de principio a fin.
-**Commit:** `chore(deploy): cutover a vercel` → luego `chore: eliminar sitio estatico legacy`
+**Commit:** `chore(deploy): cutover a netlify` → luego `chore: eliminar sitio estatico legacy`
 
 ---
 
@@ -444,7 +444,7 @@ Auditoría axe en las 3 páginas públicas + admin; foco visible y orden de tabu
 | **Endpoints ya comprometidos** en el repo público | Alto | Rotación obligatoria tras N11. No es opcional. |
 | **Migración a medias** que se estanca | Medio | Hito 1: el sitio público sale a producción por sí solo. Si el admin se retrasa, lo ya hecho ya está entregando valor. |
 | **Pérdida de SEO** por cambio de URLs | Medio | Redirects 301 en N08 + sitemap. Verificar en Search Console tras el corte. |
-| **Coste de Vercel** | Bajo | Tier Hobby cubre de sobra este tráfico. Vigilar las transformaciones de `next/image`. |
+| **Coste de Netlify** | Bajo | El plan gratuito cubre de sobra este tráfico. Vigilar las transformaciones de `next/image` y los minutos de build. |
 | **Complejidad nueva** (build, deps, CI) donde antes había cero | Medio | Real y hay que asumirlo: se cambia simplicidad por auth, rendimiento y tipos. Es el precio de resolver los 🔴 del review. |
 
 ---

@@ -107,3 +107,45 @@
     display: none;
   }
 }
+
+/* --- Detalle de evento (N15) --- */
+/* El original construía esta cabecera con estilos inline dentro del JS
+   (evento.js:272-279); aquí viven como clases. */
+.evento-detalle-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.evento-detalle-head h3 {
+  margin: 0;
+  font-family: var(--font-anton), var(--font-oswald), sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 18px;
+}
+
+.evento-detalle-acciones {
+  display: flex;
+  gap: 8px;
+}
+
+/* "pendiente" en la columna de peso (era estilo inline en
+   evento-inscripciones.js:186). */
+.peso-pendiente-inline {
+  color: var(--muted-2);
+  font-style: italic;
+}
+
+/* Modal ancho para el selector de atletas del evento. */
+.modal-lg {
+  max-width: min(900px, calc(100vw - 32px));
+}
+
+.inscribir-table-wrap {
+  max-height: 46vh;
+  overflow-y: auto;
+}
