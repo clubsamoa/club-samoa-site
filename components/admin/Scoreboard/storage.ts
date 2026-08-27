@@ -89,6 +89,39 @@ export function broadcast(
   }
 }
 
+/** Clave del "pelea activa del evento" — la escucha la vista pública. */
+export function eventoKey(eventoId: string): string {
+  return EVENT_CURRENT_PREFIX + eventoId;
+}
+
+export interface CurrentPeleaPayload {
+  pelea_id?: string;
+  evento_id?: string;
+  bracket_id?: string;
+  at?: number;
+}
+
+/** Lee la pelea activa publicada por el admin para un evento. */
+export function readCurrentPelea(eventoId: string): CurrentPeleaPayload | null {
+  if (!hasWindow()) return null;
+  try {
+    const raw = localStorage.getItem(eventoKey(eventoId));
+    return raw ? (JSON.parse(raw) as CurrentPeleaPayload) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Canal evento-scoped por el que el admin anuncia cambios de pelea. */
+export function openEventoChannel(eventoId: string): BroadcastChannel | null {
+  if (!hasWindow() || typeof BroadcastChannel === "undefined") return null;
+  try {
+    return new BroadcastChannel(eventoKey(eventoId));
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Publica la pelea activa para que una vista pública abierta con el evento
  * pueda re-engancharse sola cuando el admin cambia de pelea. Escribe en
@@ -117,7 +150,10 @@ export function publishCurrentPelea(pelea: PeleaScoreboard): void {
     if (typeof BroadcastChannel !== "undefined") {
       const ch = new BroadcastChannel(EVENT_CURRENT_PREFIX + eventoId);
       ch.postMessage(payload);
-      ch.close();
+      // Cerrar de inmediato puede tirar el mensaje (se despacha en una task
+      // posterior). El storage event de arriba es el respaldo, pero damos
+      // margen al canal también.
+      setTimeout(() => ch.close(), 2000);
     }
   } catch {
     /* ignore */

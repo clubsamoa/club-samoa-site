@@ -331,7 +331,9 @@ export default function Scoreboard({ peleaId }: { peleaId: string }) {
   const broadcastFinalized = useCallback(() => {
     const ch = openPeleaChannel(peleaId);
     broadcast(ch, { type: "finalized", peleaId, savedAt: Date.now() });
-    ch?.close();
+    // Cerrar de inmediato tira el mensaje (postMessage se despacha en una
+    // task posterior); legacy usaba un canal de vida larga. Cierre diferido.
+    if (ch) setTimeout(() => ch.close(), 2000);
   }, [peleaId]);
 
   // Submit del modal en modo EDICIÓN (la pelea ya estaba decidida).
