@@ -10,13 +10,14 @@ import EventoBrackets from "@/components/admin/EventoBrackets";
 import EventoForm from "@/components/admin/EventoForm";
 import EventoInscripciones from "@/components/admin/EventoInscripciones";
 import EventoPesaje from "@/components/admin/EventoPesaje";
+import EventoResumen from "@/components/admin/EventoResumen";
 import { useToast } from "@/components/admin/Toaster";
 import { ApiError, api } from "@/lib/api-client";
 import { ESTATUS_EVENTO, EventoSchema, parseOrWarn } from "@/lib/schemas";
 import { useState } from "react";
 
 // Puerto de legacy/admin/js/evento.js (337 líneas): cabecera del evento,
-// pestañas y panel de detalle. Resumen queda como placeholder (tarea N18).
+// pestañas y panel de detalle.
 
 const ResponseSchema = z.object({ evento: EventoSchema });
 
@@ -294,11 +295,10 @@ export default function EventoDetalle({
               )}
 
               {!isPending && evento && tabActiva === "resumen" && (
-                <div className="placeholder">
-                  <span className="placeholder-tag">Próximamente</span>
-                  <h2>Resumen</h2>
-                  <p>El resumen del evento llega en la tarea N18.</p>
-                </div>
+                <EventoResumen
+                  eventoId={eventoId}
+                  estatusEvento={evento.estatus}
+                />
               )}
             </section>
           </div>
