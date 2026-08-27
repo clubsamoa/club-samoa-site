@@ -11,7 +11,6 @@ import {
   isWriteAction,
 } from "@/lib/actions-allowlist";
 import { auth } from "@/lib/auth";
-import { isAllowedEmail } from "@/lib/auth-allowlist";
 
 // Proxy hacia el Apps Script de Eventos MMA.
 //
@@ -108,7 +107,7 @@ export async function POST(
   // middleware: el middleware protege páginas, y esta API es alcanzable
   // directamente con curl. Sin esto, el admin queda escribible sin login.
   const session = await auth();
-  if (!isAllowedEmail(session?.user?.email)) {
+  if (!session) {
     return NextResponse.json(
       { ok: false, error: "No autorizado." },
       { status: 401, headers: { "Cache-Control": "no-store" } },

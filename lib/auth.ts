@@ -1,34 +1,51 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
-import { isAllowedEmail } from "@/lib/auth-allowlist";
+import Credentials from "next-auth/providers/credentials";
+import authConfig from "@/lib/auth.config";
+import {
+  estaBloqueado,
+  limpiarIntentos,
+  registrarFallo,
+  verificarPassword,
+} from "@/lib/auth-password";
 
-// Auth.js v5 con Google como único proveedor. No hay contraseñas propias:
-// Google verifica la identidad y nosotros solo comprobamos que el correo esté
-// en la allowlist. Dar o quitar acceso al admin = editar una variable de
-// entorno (ADMIN_ALLOWED_EMAILS).
-
-export { allowedEmails, isAllowedEmail } from "@/lib/auth-allowlist";
+// Auth.js v5 con una sola contraseña compartida para el staff del club.
+//
+// La contraseña se compara SIEMPRE en el servidor, contra un hash bcrypt que
+// vive en ADMIN_PASSWORD_HASH. El navegador nunca ve el hash ni la
+// contraseña correcta.
+//
+// Este módulo corre en Node (bcrypt no funciona en edge). proxy.ts usa
+// lib/auth.config.ts, que no lo importa.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google],
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
-  callbacks: {
-    signIn({ profile }) {
-      // Google marca email_verified; exigirlo evita que un correo no
-      // confirmado coincida con la allowlist.
-      if (profile && profile.email_verified === false) return false;
-      return isAllowedEmail(profile?.email);
-    },
-    // Segunda barrera: aunque exista una cookie de sesión vieja, si el correo
-    // ya no está en la allowlist la sesión deja de ser válida.
-    session({ session }) {
-      if (!isAllowedEmail(session.user?.email)) {
-        return null as unknown as typeof session;
-      }
-      return session;
-    },
-  },
+  ...authConfig,
+  providers: [
+    Credentials({
+      name: "Contraseña del staff",
+      credentials: {
+        password: { label: "Contraseña", type: "password" },
+      },
+      async authorize(credentials, request) {
+        const ip =
+          request?.headers?.get("x-nf-client-connection-ip") ??
+          request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          "desconocida";
+
+        if (estaBloqueado(ip)) return null;
+
+        const password =
+          typeof credentials?.password === "string" ? credentials.password : "";
+        const ok = await verificarPassword(password);
+
+        if (!ok) {
+          registrarFallo(ip);
+          return null;
+        }
+
+        limpiarIntentos(ip);
+        // No hay identidad individual: es una sesión de staff compartida.
+        return { id: "staff", name: "Staff Club Samoa" };
+      },
+    }),
+  ],
 });
