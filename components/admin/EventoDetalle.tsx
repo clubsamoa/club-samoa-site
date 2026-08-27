@@ -6,6 +6,7 @@ import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import EventoBrackets from "@/components/admin/EventoBrackets";
 import EventoForm from "@/components/admin/EventoForm";
 import EventoInscripciones from "@/components/admin/EventoInscripciones";
 import EventoPesaje from "@/components/admin/EventoPesaje";
@@ -15,8 +16,7 @@ import { ESTATUS_EVENTO, EventoSchema, parseOrWarn } from "@/lib/schemas";
 import { useState } from "react";
 
 // Puerto de legacy/admin/js/evento.js (337 líneas): cabecera del evento,
-// pestañas y panel de detalle. Brackets y Resumen quedan como placeholders
-// (tareas N16 y N18).
+// pestañas y panel de detalle. Resumen queda como placeholder (tarea N18).
 
 const ResponseSchema = z.object({ evento: EventoSchema });
 
@@ -287,11 +287,10 @@ export default function EventoDetalle({
               )}
 
               {!isPending && evento && tabActiva === "brackets" && (
-                <div className="placeholder">
-                  <span className="placeholder-tag">Próximamente</span>
-                  <h2>Brackets</h2>
-                  <p>La generación de brackets llega en la tarea N16.</p>
-                </div>
+                <EventoBrackets
+                  eventoId={eventoId}
+                  fechaEvento={evento.fecha}
+                />
               )}
 
               {!isPending && evento && tabActiva === "resumen" && (
