@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { useToast } from "@/components/admin/Toaster";
+import useModalFocus from "@/components/admin/useModalFocus";
 import { ApiError, api } from "@/lib/api-client";
 import {
   GENEROS,
@@ -57,7 +58,6 @@ export default function AtletaForm({
   const { toastError, toastSuccess } = useToast();
   const dialogRef = useRef<HTMLDivElement>(null);
   const primerCampoRef = useRef<HTMLInputElement>(null);
-  const disparadorRef = useRef<HTMLElement | null>(null);
 
   const esEdicion = atleta !== null;
 
@@ -84,39 +84,7 @@ export default function AtletaForm({
   const set = (campo: string, valor: string) =>
     setValores((prev) => ({ ...prev, [campo]: valor }));
 
-  // Foco inicial y restauración al cerrar (el original solo hacía lo primero).
-  useEffect(() => {
-    disparadorRef.current = document.activeElement as HTMLElement | null;
-    primerCampoRef.current?.focus();
-    return () => disparadorRef.current?.focus?.();
-  }, []);
-
-  // Escape cierra; Tab queda atrapado dentro del modal.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const foco = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      if (!foco || foco.length === 0) return;
-      const primero = foco[0]!;
-      const ultimo = foco[foco.length - 1]!;
-      if (event.shiftKey && document.activeElement === primero) {
-        event.preventDefault();
-        ultimo.focus();
-      } else if (!event.shiftKey && document.activeElement === ultimo) {
-        event.preventDefault();
-        primero.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useModalFocus(dialogRef, onClose, primerCampoRef);
 
   // Sugerencia de nivel al escribir los años de práctica. Como en el original
   // (atletas-form.js:120-130) se hace en el propio evento de input, no en un

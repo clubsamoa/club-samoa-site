@@ -851,6 +851,11 @@ function ScoreboardActivo({
         <AtletaCard pelea={pelea} state={state} side="a1" />
         <div className="scoreboard-vs">VS</div>
         <AtletaCard pelea={pelea} state={state} side="a2" />
+        {/* Marcador para lectores de pantalla (N20): anuncia el total cada
+            vez que cambian los puntos, sin ensuciar la vista del operador. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {`Marcador: ${pelea.atleta1?.nombre_completo || "Atleta 1"} ${totalScore(state.scoring, "a1")}, ${pelea.atleta2?.nombre_completo || "Atleta 2"} ${totalScore(state.scoring, "a2")}`}
+        </p>
       </div>
 
       <div className="scoreboard-round-info">
