@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import BracketSvg, { type PeleaSvg } from "@/components/admin/BracketSvg";
 import { fetchBrackets } from "@/components/admin/brackets-data";
 import { useToast } from "@/components/admin/Toaster";
+import useModalFocus from "@/components/admin/useModalFocus";
 import { ApiError, api } from "@/lib/api-client";
 import {
   agruparAtletas,
@@ -535,6 +536,8 @@ function MoverAtletaModal({
   onMoved: () => void;
 }) {
   const { toastSuccess } = useToast();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalFocus(dialogRef, onClose);
   const a = ins.atleta ?? {};
   const genero = a.genero ?? "Masculino";
   const autoDivision = calcularDivisionEdad(a.fecha_nacimiento, fechaEvento);
@@ -585,6 +588,7 @@ function MoverAtletaModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="brackets-mover-title"
+        ref={dialogRef}
       >
         <div className="modal-header">
           <h2 id="brackets-mover-title">

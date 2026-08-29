@@ -7,6 +7,7 @@
   --muted: rgba(247, 242, 241, 0.72);
   --brand: #f40706;
   --brand-deep: #a10405;
+  --brand-text: #ff5a52; /* N20: rojo para texto chico sobre cards */
   --button-red: #ae0000;
   --button-red-deep: #7f0000;
   --surface: #f7f2f1;
@@ -659,7 +660,7 @@ textarea {
 .stat-label,
 .price-tag,
 .event-date {
-  color: var(--brand);
+  color: var(--brand-text);
   font-weight: 700;
 }
 
@@ -1688,7 +1689,7 @@ textarea {
   margin-top: 48px;
   border-top: 1px solid var(--line);
   font-size: 12px;
-  color: rgba(247, 242, 241, 0.42);
+  color: rgba(247, 242, 241, 0.56); /* N20: 0.42 daba 3.7:1 */
   flex-wrap: wrap;
 }
 
@@ -1698,7 +1699,7 @@ textarea {
 }
 
 .site-footer-admin {
-  color: rgba(247, 242, 241, 0.32);
+  color: rgba(247, 242, 241, 0.56); /* N20: 0.32 daba 2.5:1 */
   text-decoration: none;
   letter-spacing: 0.18em;
   text-transform: uppercase;

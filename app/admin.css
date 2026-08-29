@@ -13,8 +13,9 @@
   --line-strong: rgba(247, 242, 241, 0.22);
   --text: #f7f2f1;
   --muted: rgba(247, 242, 241, 0.62);
-  --muted-2: rgba(247, 242, 241, 0.38);
+  --muted-2: rgba(247, 242, 241, 0.56); /* N20: 0.38 daba 3.3:1 */
   --brand: #f40706;
+  --brand-hover: #dc0605; /* N20: rojo de hover con blanco >= 4.5:1 */
   --brand-deep: #a10405;
   --button-red: #ae0000;
   --button-red-deep: #7f0000;
@@ -240,7 +241,7 @@ textarea {
 
 .admin-nav-evento-fecha {
   font-size: 11px;
-  opacity: 0.6;
+  color: var(--muted-2);
   letter-spacing: 0.02em;
   text-transform: lowercase;
 }
@@ -358,7 +359,7 @@ textarea {
 }
 
 .btn-primary:hover {
-  background: var(--brand);
+  background: var(--brand-hover);
 }
 
 .btn-ghost {
@@ -1823,7 +1824,7 @@ textarea {
 }
 
 .btn-aprobar:hover {
-  background: var(--brand);
+  background: var(--brand-hover);
 }
 
 .btn-rechazar {
@@ -3301,7 +3302,7 @@ textarea {
 }
 
 .btn-start:hover:not(:disabled) {
-  background: var(--brand);
+  background: var(--brand-hover);
 }
 
 .btn-pause {
@@ -3960,7 +3961,20 @@ textarea {
 
 .public-waiting-hint {
   font-size: clamp(13px, 1.4vw, 17px);
-  color: rgba(247, 242, 241, 0.42);
+  color: rgba(247, 242, 241, 0.56);
   letter-spacing: 0.02em;
 }
 
+
+/* Solo para lectores de pantalla (N20): visualmente oculto, accesible. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

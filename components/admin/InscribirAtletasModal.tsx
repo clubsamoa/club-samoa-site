@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
@@ -9,6 +9,7 @@ import {
   NivelBadge,
 } from "@/components/admin/EventoInscripciones";
 import { useToast } from "@/components/admin/Toaster";
+import useModalFocus from "@/components/admin/useModalFocus";
 import { ApiError, api } from "@/lib/api-client";
 import { AtletaSchema, parseOrWarn } from "@/lib/schemas";
 
@@ -31,7 +32,6 @@ export default function InscribirAtletasModal({
   const { toastError, toastSuccess } = useToast();
   const dialogRef = useRef<HTMLDivElement>(null);
   const buscarRef = useRef<HTMLInputElement>(null);
-  const disparadorRef = useRef<HTMLElement | null>(null);
 
   const [busqueda, setBusqueda] = useState("");
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
@@ -47,37 +47,7 @@ export default function InscribirAtletasModal({
     },
   });
 
-  useEffect(() => {
-    disparadorRef.current = document.activeElement as HTMLElement | null;
-    buscarRef.current?.focus();
-    return () => disparadorRef.current?.focus?.();
-  }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const foco = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      if (!foco || foco.length === 0) return;
-      const primero = foco[0]!;
-      const ultimo = foco[foco.length - 1]!;
-      if (event.shiftKey && document.activeElement === primero) {
-        event.preventDefault();
-        ultimo.focus();
-      } else if (!event.shiftKey && document.activeElement === ultimo) {
-        event.preventDefault();
-        primero.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useModalFocus(dialogRef, onClose, buscarRef);
 
   const inscribir = useMutation({
     mutationFn: (ids: string[]) =>

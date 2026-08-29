@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import useModalFocus from "@/components/admin/useModalFocus";
 import { METODOS_FINALIZACION } from "@/lib/reglamento";
 import type { PeleaScoreboard } from "./types";
 
@@ -58,14 +59,8 @@ export default function FinalizarModal({
   const a1Name = pelea.atleta1?.nombre_completo || "Atleta 1";
   const a2Name = pelea.atleta2?.nombre_completo || "Atleta 2";
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    metodoRef.current?.focus();
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalFocus(dialogRef, onClose, metodoRef);
 
   const onMetodoChange = (v: string) => {
     setMetodo(v);
@@ -127,6 +122,7 @@ export default function FinalizarModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="finalizar-title"
+        ref={dialogRef}
       >
         <div className="modal-header">
           <h2 id="finalizar-title">
