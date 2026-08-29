@@ -15,7 +15,9 @@
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run typecheck && npm run format:check",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test --project=ci",
+    "e2e:sheet": "playwright test --project=sheet-real"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
@@ -27,6 +29,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",

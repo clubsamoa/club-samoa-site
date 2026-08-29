@@ -1,0 +1,47 @@
+# CI de la migración Next (tarea N19): lint + typecheck + format, unit tests
+# y los flujos E2E herméticos (proyecto "ci" de Playwright, que corre contra
+# el mock de Apps Script — nunca contra una Sheet real). El flujo de evento
+# completo (proyecto "sheet-real") queda fuera de CI a propósito: se corre a
+# mano contra una Sheet de pruebas, ver e2e/evento-completo.spec.ts.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint + typecheck + format
+        run: npm run check
+
+      - name: Tests unitarios (Vitest)
+        run: npm test
+
+      - name: Instalar Chromium de Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests E2E (Playwright, contra el mock)
+        run: npx playwright test --project=ci
+
+      - name: Subir reporte de Playwright si falló
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
