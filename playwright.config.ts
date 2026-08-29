@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
 
 // E2E de la migración Next (tarea N19).
@@ -19,13 +20,26 @@ export const BASE_URL = `http://localhost:${PORT}`;
 // Credencial exclusiva de e2e (hash de "samoa-e2e"). No es un secreto: solo
 // existe dentro del servidor efímero que levanta esta config.
 //
-// Los $ van escapados como \$ porque @next/env corre dotenv-expand sobre
-// process.env completo — sin escape, "$2b$10$..." se expande como variables
-// y el hash llega truncado al servidor (misma trampa que documenta
-// .env.example para .env.local).
+// Trampa de @next/env: cuando existe algún archivo .env*, dotenv-expand
+// corre sobre process.env COMPLETO y "$2b$10$..." se expande como variables
+// (queda truncado) — ahí el hash necesita los $ escapados como \$ (misma
+// trampa que documenta .env.example). Pero sin archivos .env* — como en CI —
+// la expansión NO corre y los \$ se quedan literales. Se pasa la forma que
+// cada entorno necesita.
 export const E2E_PASSWORD = "samoa-e2e";
-const E2E_PASSWORD_HASH =
-  "\\$2b\\$10\\$F42V0OU3MXb8RR8GNWIs1OKArEh76YpOyVMXAF4.tIhIQbii03RvK";
+const HASH_CRUDO =
+  "$2b$10$F42V0OU3MXb8RR8GNWIs1OKArEh76YpOyVMXAF4.tIhIQbii03RvK";
+const hayArchivoEnv = [
+  ".env",
+  ".env.local",
+  ".env.development",
+  ".env.development.local",
+  ".env.production",
+  ".env.production.local",
+].some((f) => existsSync(f));
+const E2E_PASSWORD_HASH = hayArchivoEnv
+  ? HASH_CRUDO.replaceAll("$", "\\$")
+  : HASH_CRUDO;
 
 const realBackend = process.env.E2E_EVENTOS === "1";
 
