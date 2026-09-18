@@ -8,6 +8,19 @@ import { E2E_PASSWORD } from "../playwright.config";
 // serious; moderate/minor se reportan en consola sin romper el build.
 
 async function auditar(page: Page, nombre: string) {
+  // axe mide el color que hay en pantalla en ese instante. Un elemento a
+  // media transición devuelve el color MEZCLADO con el fondo: el "💾 Guardado"
+  // del scoreboard, que reaparece con cada autoguardado y entra con un fade de
+  // 300 ms, se reportaba como 2.4:1 (#475644 sobre #13100e) cuando en reposo
+  // pasa de 10:1. Se congelan transiciones y animaciones para auditar la UI
+  // asentada, que es la que el usuario lee.
+  await page.addStyleTag({
+    content: `*, *::before, *::after {
+      transition: none !important;
+      animation: none !important;
+    }`,
+  });
+
   const resultados = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

@@ -3,6 +3,7 @@ import Footer from "@/components/site/Footer";
 import PreciosGrid from "@/components/site/PreciosGrid";
 import TorneoCard from "@/components/site/TorneoCard";
 import { TORNEOS_PASADOS, TORNEOS_PROXIMOS } from "@/content/torneos";
+import { OG_IMAGE } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Club Samoa | Comunidad",
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
     title: "Club Samoa | Comunidad",
     description:
       "Precios, paquetes y torneos de Club Samoa para la comunidad de alumnos y competidores.",
+    images: [OG_IMAGE],
   },
 };
 

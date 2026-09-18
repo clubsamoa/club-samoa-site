@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import RegistroForm from "@/components/site/RegistroForm";
+import { OG_IMAGE } from "@/lib/constants";
 import {
   DISCIPLINAS_EXAMEN_LIMA_KICK,
   DISCIPLINAS_EXAMEN_MMA_JJ,
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
     title: "Club Samoa | Portal de Alumnos",
     description:
       "Pedidos de uniformes y registro de exámenes de grado para alumnos de Club Samoa.",
+    images: [OG_IMAGE],
   },
 };
 
