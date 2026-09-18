@@ -13,6 +13,10 @@ import {
 // POST sale del servidor, así que por primera vez podemos leer la respuesta
 // real del backend y reportar errores al alumno en vez de asumir éxito.
 
+// Apps Script tarda 2-4 s en condiciones normales. Se deja como constante
+// para poder moverlo en un solo sitio.
+const TIMEOUT_MS = 20_000;
+
 export async function submitRegistro(
   variant: FormVariant,
   _prev: RegistroState,
@@ -69,12 +73,13 @@ export async function submitRegistro(
   payload.set("page_url", `${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/alumnos`);
   payload.set("user_agent", requestHeaders.get("user-agent") ?? "");
 
+  const inicio = Date.now();
   try {
     const response = await fetch(endpoint, {
       method: "POST",
       body: payload,
       redirect: "follow",
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     const text = await response.text();
 
@@ -99,10 +104,31 @@ export async function submitRegistro(
     }
 
     return { status: "success", submissionId };
-  } catch {
+  } catch (error) {
+    // Sin esto el fallo es invisible: el catch devolvía un mensaje genérico y
+    // se perdía la causa. En el ensayo de N21 los exámenes fallaban desde
+    // Netlify mientras los uniformes pasaban, y no había forma de saber por
+    // qué sin desplegar un log.
+    const causa =
+      error instanceof Error
+        ? `${error.name}: ${error.message}`
+        : String(error);
+    console.error(
+      `[registro] fallo '${variant}' tras ${Date.now() - inicio} ms -> ${causa}`,
+      error,
+    );
+
+    // Un timeout NO significa que no se haya guardado: Apps Script escribe la
+    // fila antes de responder, así que reenviar duplica el registro. El
+    // mensaje tiene que decirlo o el alumno reintenta hasta lograrlo.
+    const esTimeout =
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError");
     return {
       status: "error",
-      message: "No se pudo enviar el registro. Intenta de nuevo en un momento.",
+      message: esTimeout
+        ? "El servidor tardó demasiado en responder. Es posible que tu registro sí se haya guardado: confírmalo por WhatsApp antes de volver a enviarlo."
+        : "No se pudo enviar el registro. Intenta de nuevo en un momento.",
     };
   }
 }
