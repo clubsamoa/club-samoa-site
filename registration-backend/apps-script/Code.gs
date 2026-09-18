@@ -4,8 +4,11 @@ const CLUB_SAMOA = {
   notificationEmailProperty: "CLUB_SAMOA_NOTIFICATION_EMAIL",
   notificationQueuePrefix: "CLUB_SAMOA_PENDIENTE_",
   notificationHandler: "enviarNotificacionesPendientes",
-  notificationTriggerCacheKey: "CLUB_SAMOA_TRIGGER_NOTIFICACIONES",
+  notificationHeartbeatProperty: "CLUB_SAMOA_TRIGGER_LATIDO",
   maxIntentosNotificacion: 3,
+  // Si el trigger lleva más de esto sin dar señales, doPost deja de confiar
+  // en él y vuelve a mandar los correos en línea.
+  minutosParaDarPorMuertoElTrigger: 15,
   defaultUniformesSpreadsheetId: "1ZiN8C63ssLsCMhiszuU1I_xXkuIgGzFswmLm0vdp8cU",
   defaultExamenesSpreadsheetId: "1GTkg0CF-AJLX-It04hBneMWBOqN0tNGyZFoW029YtjY",
   fromName: "Club Samoa Registros",
@@ -600,11 +603,11 @@ function encolarNotificacion_(formType, rowValues, spreadsheetUrl) {
   });
   const trabajo = { formType: formType, rowValues: valores, spreadsheetUrl: spreadsheetUrl, intentos: 0 };
 
-  // Sin trigger instalado nadie vaciaría la cola y la notificación se
-  // perdería en silencio. En ese caso se envía en línea, como antes.
-  if (!hayTriggerDeNotificaciones_()) {
+  // Sin trigger vivo nadie vaciaría la cola y la notificación se perdería en
+  // silencio. En ese caso se envía en línea, como antes del cambio.
+  if (!laColaEstaViva_()) {
     console.warn(
-      "[notificaciones] no hay trigger instalado: se envía en línea. Ejecuta instalarTriggerDeNotificaciones() una vez desde el editor.",
+      "[notificaciones] el trigger no da señales: se envía en línea. Ejecuta instalarTriggerDeNotificaciones() una vez desde el editor.",
     );
     enviarNotificacionSinRomper_(trabajo);
     return;
@@ -628,20 +631,28 @@ function enviarNotificacionSinRomper_(trabajo) {
   }
 }
 
-function hayTriggerDeNotificaciones_() {
-  const cache = CacheService.getScriptCache();
-  const guardado = cache.get(CLUB_SAMOA.notificationTriggerCacheKey);
-  if (guardado) {
-    return guardado === "1";
+// Se mira un LATIDO en Script Properties, no ScriptApp.getProjectTriggers():
+// esa llamada exige el scope script.scriptapp, que la implementación web NO
+// tiene autorizado, y hacía que doPost devolviera ok:false en TODOS los
+// registros — con la fila ya escrita, que es justo el fallo que se venía a
+// curar. El latido además detecta un trigger borrado a mano o desactivado
+// por Google tras varios fallos, cosa que la lista de triggers no distingue.
+function laColaEstaViva_() {
+  const latido = PropertiesService.getScriptProperties().getProperty(
+    CLUB_SAMOA.notificationHeartbeatProperty,
+  );
+  if (!latido) {
+    return false;
   }
+  const minutos = (Date.now() - new Date(latido).getTime()) / 60000;
+  return minutos >= 0 && minutos < CLUB_SAMOA.minutosParaDarPorMuertoElTrigger;
+}
 
-  const instalado = ScriptApp.getProjectTriggers().some(function (trigger) {
-    return trigger.getHandlerFunction() === CLUB_SAMOA.notificationHandler;
-  });
-  // Si NO está instalado se cachea poco, para que instalarlo surta efecto
-  // en un minuto en vez de en una hora.
-  cache.put(CLUB_SAMOA.notificationTriggerCacheKey, instalado ? "1" : "0", instalado ? 3600 : 60);
-  return instalado;
+function marcarLatidoDelTrigger_() {
+  PropertiesService.getScriptProperties().setProperty(
+    CLUB_SAMOA.notificationHeartbeatProperty,
+    new Date().toISOString(),
+  );
 }
 
 /** Handler del trigger. Vacía la cola: un correo por registro pendiente. */
@@ -654,6 +665,10 @@ function enviarNotificacionesPendientes() {
   }
 
   try {
+    // Señal de vida para doPost: mientras el trigger corra, los correos se
+    // encolan; si deja de correr, doPost vuelve a mandarlos en línea.
+    marcarLatidoDelTrigger_();
+
     const props = PropertiesService.getScriptProperties();
     const claves = props.getKeys().filter(function (clave) {
       return clave.indexOf(CLUB_SAMOA.notificationQueuePrefix) === 0;
@@ -699,7 +714,8 @@ function enviarNotificacionesPendientes() {
 function instalarTriggerDeNotificaciones() {
   desinstalarTriggerDeNotificaciones();
   ScriptApp.newTrigger(CLUB_SAMOA.notificationHandler).timeBased().everyMinutes(1).create();
-  CacheService.getScriptCache().remove(CLUB_SAMOA.notificationTriggerCacheKey);
+  // El latido se marca ya: si no, el primer minuto los correos irían en línea.
+  marcarLatidoDelTrigger_();
   console.log("Trigger instalado: " + CLUB_SAMOA.notificationHandler + " cada minuto.");
 }
 
@@ -709,7 +725,9 @@ function desinstalarTriggerDeNotificaciones() {
       ScriptApp.deleteTrigger(trigger);
     }
   });
-  CacheService.getScriptCache().remove(CLUB_SAMOA.notificationTriggerCacheKey);
+  PropertiesService.getScriptProperties().deleteProperty(
+    CLUB_SAMOA.notificationHeartbeatProperty,
+  );
 }
 
 /** Diagnóstico desde el editor: cuántos correos quedan sin mandar. */
@@ -722,8 +740,11 @@ function estadoDeLaColaDeNotificaciones() {
   const trigger = ScriptApp.getProjectTriggers().some(function (t) {
     return t.getHandlerFunction() === CLUB_SAMOA.notificationHandler;
   });
-  console.log("Trigger instalado: " + trigger + " | correos pendientes: " + pendientes.length);
-  return { trigger: trigger, pendientes: pendientes.length };
+  const viva = laColaEstaViva_();
+  console.log(
+    "Trigger instalado: " + trigger + " | cola viva para doPost: " + viva + " | correos pendientes: " + pendientes.length,
+  );
+  return { trigger: trigger, viva: viva, pendientes: pendientes.length };
 }
 
 function sendNotification_(formType, rowValues, spreadsheetUrl) {

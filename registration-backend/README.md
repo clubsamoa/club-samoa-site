@@ -32,10 +32,14 @@ After that, the website forms will save rows into the matching Google Sheet and 
 Por eso `doPost` ya no manda el correo: escribe la fila, deja el aviso en una cola (Script Properties, una propiedad por pendiente) y responde. El trigger `enviarNotificacionesPendientes` la vacía cada minuto.
 
 - **`instalarTriggerDeNotificaciones()`** — se corre una sola vez desde el editor. Si se corre de nuevo no duplica el trigger.
-- **`estadoDeLaColaDeNotificaciones()`** — imprime si el trigger está puesto y cuántos avisos quedan sin mandar.
+- **`estadoDeLaColaDeNotificaciones()`** — imprime si el trigger está puesto, si `doPost` lo da por vivo y cuántos avisos quedan sin mandar.
 - **`desinstalarTriggerDeNotificaciones()`** — lo quita.
 
-Si el trigger no está instalado, `doPost` lo detecta y manda el correo en línea igual que antes, dejando un aviso en el log: nunca se pierde una notificación, pero se vuelve a correr el riesgo del timeout. Un correo que falle se reintenta 3 veces y después se descarta con un `console.error` — la fila en la Sheet no se toca nunca.
+Cada corrida del trigger deja un **latido** (una fecha en Script Properties). `doPost` mira ese latido: si falta o tiene más de 15 minutos, manda el correo en línea igual que antes y deja un aviso en el log. Así nunca se pierde una notificación aunque nadie haya instalado el trigger, aunque alguien lo borre a mano, o aunque Google lo desactive tras varios fallos seguidos.
+
+**`doPost` no puede llamar a `ScriptApp`.** Esa API exige el scope `script.scriptapp`, que la implementación web no tiene autorizado: la primera versión de este cambio comprobaba el trigger con `ScriptApp.getProjectTriggers()` y tumbó todos los registros en producción con `ok:false` — y con la fila ya escrita, que es exactamente el fallo que se venía a curar. De ahí el latido. `ScriptApp` solo aparece en las tres funciones que se corren a mano desde el editor, donde el permiso sí se pide.
+
+Un correo que falle se reintenta 3 veces y después se descarta con un `console.error` — la fila en la Sheet no se toca nunca.
 
 Las pruebas de esta lógica están en `lib/__tests__/code-gs-notificaciones.test.ts`: cargan este `Code.gs` en un `vm` con los servicios de Google sustituidos por dobles, porque desde el repo no hay forma de desplegarlo para probarlo.
 

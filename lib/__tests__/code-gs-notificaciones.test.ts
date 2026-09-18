@@ -35,24 +35,29 @@ type Sandbox = Record<string, unknown> & {
 };
 
 type Opciones = {
-  triggerInstalado?: boolean;
+  /** Minutos desde el último latido del trigger; null = nunca ha corrido. */
+  latidoHaceMinutos?: number | null;
   mailFalla?: boolean;
   lockLibre?: boolean;
+  /** Reproduce la implementación web sin el scope script.scriptapp. */
+  scriptAppProhibido?: boolean;
 };
 
 function montar({
-  triggerInstalado = true,
+  latidoHaceMinutos = 0,
   mailFalla = false,
   lockLibre = true,
+  scriptAppProhibido = false,
 }: Opciones = {}) {
   const props = new Map<string, string>();
   const cache = new Map<string, string>();
   const correos: Correo[] = [];
   const filas: unknown[][] = [];
   const logs: [string, string][] = [];
-  let triggers: Trigger[] = triggerInstalado
-    ? [{ handler: "enviarNotificacionesPendientes" }]
-    : [];
+  let triggers: Trigger[] =
+    latidoHaceMinutos === null
+      ? []
+      : [{ handler: "enviarNotificacionesPendientes" }];
   let lockTomado = !lockLibre;
 
   const hoja = {
@@ -77,6 +82,18 @@ function montar({
     (nivel: string) =>
     (...partes: unknown[]) =>
       logs.push([nivel, partes.join(" ")]);
+
+  // Apps Script lanza esto cuando la implementación web no tiene autorizado
+  // el scope. Pasó en producción: doPost llamaba a
+  // ScriptApp.getProjectTriggers() y devolvía ok:false en TODOS los
+  // registros, con la fila ya escrita.
+  function exigirScope() {
+    if (scriptAppProhibido) {
+      throw new Error(
+        "No cuentas con el permiso para llamar a ScriptApp.getProjectTriggers.",
+      );
+    }
+  }
 
   const sandbox: Record<string, unknown> = {
     console: {
@@ -106,14 +123,23 @@ function montar({
       }),
     },
     ScriptApp: {
-      getProjectTriggers: () =>
-        triggers.map((t) => ({ getHandlerFunction: () => t.handler, _t: t })),
-      newTrigger: (handler: string) => ({
-        timeBased: () => ({
-          everyMinutes: () => ({ create: () => triggers.push({ handler }) }),
-        }),
-      }),
+      getProjectTriggers: () => {
+        exigirScope();
+        return triggers.map((t) => ({
+          getHandlerFunction: () => t.handler,
+          _t: t,
+        }));
+      },
+      newTrigger: (handler: string) => {
+        exigirScope();
+        return {
+          timeBased: () => ({
+            everyMinutes: () => ({ create: () => triggers.push({ handler }) }),
+          }),
+        };
+      },
       deleteTrigger: (t: { _t: Trigger }) => {
+        exigirScope();
         triggers = triggers.filter((x) => x !== t._t);
       },
     },
@@ -154,6 +180,12 @@ function montar({
     filename: "Code.gs",
   });
   props.set("CLUB_SAMOA_NOTIFICATION_EMAIL", "club@ejemplo.mx");
+  if (latidoHaceMinutos !== null) {
+    props.set(
+      "CLUB_SAMOA_TRIGGER_LATIDO",
+      new Date(Date.now() - latidoHaceMinutos * 60_000).toISOString(),
+    );
+  }
 
   const pendientes = () =>
     [...props.keys()].filter((k) => k.startsWith("CLUB_SAMOA_PENDIENTE_"));
@@ -165,6 +197,7 @@ function montar({
     logs,
     pendientes,
     triggers: () => triggers,
+    latido: () => props.get("CLUB_SAMOA_TRIGGER_LATIDO") ?? null,
   };
 }
 
@@ -214,9 +247,9 @@ describe("Code.gs · cola de notificaciones", () => {
     expect(correos[0]!.htmlBody).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/);
   });
 
-  it("sin el trigger instalado manda en línea en vez de perder el aviso", () => {
+  it("sin latido del trigger manda en línea en vez de perder el aviso", () => {
     const { api, correos, logs, pendientes } = montar({
-      triggerInstalado: false,
+      latidoHaceMinutos: null,
     });
 
     respuesta(api, registro("b1"));
@@ -275,16 +308,59 @@ describe("Code.gs · cola de notificaciones", () => {
     expect(pendientes()).toHaveLength(1);
   });
 
-  it("instalar el trigger dos veces no lo duplica", () => {
-    const { api, triggers } = montar({ triggerInstalado: false });
+  it("instalar el trigger dos veces no lo duplica y deja latido", () => {
+    const { api, triggers, latido } = montar({ latidoHaceMinutos: null });
 
     api.instalarTriggerDeNotificaciones();
     api.instalarTriggerDeNotificaciones();
 
     expect(triggers()).toHaveLength(1);
+    expect(latido()).not.toBeNull();
     expect(api.estadoDeLaColaDeNotificaciones().trigger).toBe(true);
 
     api.desinstalarTriggerDeNotificaciones();
     expect(triggers()).toHaveLength(0);
+    expect(latido()).toBeNull();
+  });
+
+  // El fallo que se coló a producción: doPost tocaba ScriptApp, la
+  // implementación web no tenía ese scope y TODOS los registros devolvían
+  // ok:false con la fila ya escrita.
+  it("doPost no toca ScriptApp ni con el scope denegado", () => {
+    const { api, filas, pendientes } = montar({ scriptAppProhibido: true });
+
+    const res = respuesta(api, registro("f1"));
+
+    expect(res.ok).toBe(true);
+    expect(filas).toHaveLength(1);
+    expect(pendientes()).toHaveLength(1);
+  });
+
+  it("vaciar la cola tampoco necesita ScriptApp", () => {
+    const { api, correos } = montar({ scriptAppProhibido: true });
+    respuesta(api, registro("f2"));
+
+    api.enviarNotificacionesPendientes();
+
+    expect(correos).toHaveLength(1);
+  });
+
+  it("si el trigger lleva rato mudo vuelve a mandar en línea", () => {
+    const { api, correos, pendientes } = montar({ latidoHaceMinutos: 40 });
+
+    respuesta(api, registro("g1"));
+
+    expect(correos).toHaveLength(1);
+    expect(pendientes()).toHaveLength(0);
+  });
+
+  it("cada corrida del trigger refresca el latido", () => {
+    const { api, latido } = montar({ latidoHaceMinutos: 10 });
+    const antes = latido();
+
+    api.enviarNotificacionesPendientes();
+
+    expect(latido()).not.toBe(antes);
+    expect(Date.now() - new Date(latido()!).getTime()).toBeLessThan(5_000);
   });
 });
