@@ -2,6 +2,10 @@ const CLUB_SAMOA = {
   uniformesProperty: "CLUB_SAMOA_UNIFORMES_SPREADSHEET_ID",
   examenesProperty: "CLUB_SAMOA_EXAMENES_SPREADSHEET_ID",
   notificationEmailProperty: "CLUB_SAMOA_NOTIFICATION_EMAIL",
+  notificationQueuePrefix: "CLUB_SAMOA_PENDIENTE_",
+  notificationHandler: "enviarNotificacionesPendientes",
+  notificationTriggerCacheKey: "CLUB_SAMOA_TRIGGER_NOTIFICACIONES",
+  maxIntentosNotificacion: 3,
   defaultUniformesSpreadsheetId: "1ZiN8C63ssLsCMhiszuU1I_xXkuIgGzFswmLm0vdp8cU",
   defaultExamenesSpreadsheetId: "1GTkg0CF-AJLX-It04hBneMWBOqN0tNGyZFoW029YtjY",
   fromName: "Club Samoa Registros",
@@ -130,8 +134,12 @@ function doPost(e) {
     const formType = normalizeFormType_(payload.form_type || payload.formType || payload.tipo || payload.type);
     const saved = formType === "uniformes" ? saveUniformes_(payload) : saveExamenes_(payload);
 
+    // La fila ya está escrita. El correo se ENCOLA y lo manda el trigger:
+    // MailApp puede tardar más que el timeout del cliente y entonces el
+    // alumno ve "no se pudo enviar" aunque su registro sí quedó guardado —
+    // reenvía, se genera un submission_id nuevo y la fila se duplica.
     if (!saved.duplicate) {
-      sendNotification_(formType, saved.rowValues, saved.spreadsheetUrl);
+      encolarNotificacion_(formType, saved.rowValues, saved.spreadsheetUrl);
     }
 
     return json_({
@@ -575,6 +583,147 @@ function findSubmission_(sheet, id) {
     .createTextFinder(id)
     .matchEntireCell(true)
     .findNext();
+}
+
+// ---------------------------------------------------------------
+// Cola de notificaciones (fuera del camino de la respuesta)
+// ---------------------------------------------------------------
+
+function encolarNotificacion_(formType, rowValues, spreadsheetUrl) {
+  // Las fechas se formatean AQUÍ: al pasar por JSON un Date vuelve como
+  // texto ISO y sendNotification_ ya no lo reconocería, así que el correo
+  // mostraría "2026-09-18T16:30:00.000Z" en vez de "2026-09-18 16:30".
+  const valores = rowValues.map(function (valor) {
+    return valor instanceof Date
+      ? Utilities.formatDate(valor, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm")
+      : valor;
+  });
+  const trabajo = { formType: formType, rowValues: valores, spreadsheetUrl: spreadsheetUrl, intentos: 0 };
+
+  // Sin trigger instalado nadie vaciaría la cola y la notificación se
+  // perdería en silencio. En ese caso se envía en línea, como antes.
+  if (!hayTriggerDeNotificaciones_()) {
+    console.warn(
+      "[notificaciones] no hay trigger instalado: se envía en línea. Ejecuta instalarTriggerDeNotificaciones() una vez desde el editor.",
+    );
+    enviarNotificacionSinRomper_(trabajo);
+    return;
+  }
+
+  PropertiesService.getScriptProperties().setProperty(
+    CLUB_SAMOA.notificationQueuePrefix + Utilities.getUuid(),
+    JSON.stringify(trabajo),
+  );
+}
+
+// Un fallo de MailApp no puede tumbar la respuesta: la fila ya está escrita
+// y devolver ok:false haría que el alumno reenviara y la duplicara.
+function enviarNotificacionSinRomper_(trabajo) {
+  try {
+    sendNotification_(trabajo.formType, trabajo.rowValues, trabajo.spreadsheetUrl);
+    return true;
+  } catch (error) {
+    console.error("[notificaciones] envío fallido: " + error);
+    return false;
+  }
+}
+
+function hayTriggerDeNotificaciones_() {
+  const cache = CacheService.getScriptCache();
+  const guardado = cache.get(CLUB_SAMOA.notificationTriggerCacheKey);
+  if (guardado) {
+    return guardado === "1";
+  }
+
+  const instalado = ScriptApp.getProjectTriggers().some(function (trigger) {
+    return trigger.getHandlerFunction() === CLUB_SAMOA.notificationHandler;
+  });
+  // Si NO está instalado se cachea poco, para que instalarlo surta efecto
+  // en un minuto en vez de en una hora.
+  cache.put(CLUB_SAMOA.notificationTriggerCacheKey, instalado ? "1" : "0", instalado ? 3600 : 60);
+  return instalado;
+}
+
+/** Handler del trigger. Vacía la cola: un correo por registro pendiente. */
+function enviarNotificacionesPendientes() {
+  const lock = LockService.getScriptLock();
+  // Si otra corrida ya está vaciando la cola, esta se retira: sin esto dos
+  // triggers solapados mandarían el mismo correo dos veces.
+  if (!lock.tryLock(5000)) {
+    return;
+  }
+
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const claves = props.getKeys().filter(function (clave) {
+      return clave.indexOf(CLUB_SAMOA.notificationQueuePrefix) === 0;
+    });
+
+    claves.forEach(function (clave) {
+      const crudo = props.getProperty(clave);
+      if (!crudo) {
+        return;
+      }
+
+      let trabajo;
+      try {
+        trabajo = JSON.parse(crudo);
+      } catch (error) {
+        console.error("[notificaciones] " + clave + " ilegible, se descarta: " + error);
+        props.deleteProperty(clave);
+        return;
+      }
+
+      if (enviarNotificacionSinRomper_(trabajo)) {
+        props.deleteProperty(clave);
+        return;
+      }
+
+      const intentos = Number(trabajo.intentos || 0) + 1;
+      if (intentos >= CLUB_SAMOA.maxIntentosNotificacion) {
+        console.error(
+          "[notificaciones] " + clave + " se descarta tras " + intentos + " intentos. El registro SÍ está en la Sheet.",
+        );
+        props.deleteProperty(clave);
+        return;
+      }
+      trabajo.intentos = intentos;
+      props.setProperty(clave, JSON.stringify(trabajo));
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Se corre UNA vez desde el editor. Sin esto los correos van en línea. */
+function instalarTriggerDeNotificaciones() {
+  desinstalarTriggerDeNotificaciones();
+  ScriptApp.newTrigger(CLUB_SAMOA.notificationHandler).timeBased().everyMinutes(1).create();
+  CacheService.getScriptCache().remove(CLUB_SAMOA.notificationTriggerCacheKey);
+  console.log("Trigger instalado: " + CLUB_SAMOA.notificationHandler + " cada minuto.");
+}
+
+function desinstalarTriggerDeNotificaciones() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === CLUB_SAMOA.notificationHandler) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  CacheService.getScriptCache().remove(CLUB_SAMOA.notificationTriggerCacheKey);
+}
+
+/** Diagnóstico desde el editor: cuántos correos quedan sin mandar. */
+function estadoDeLaColaDeNotificaciones() {
+  const pendientes = PropertiesService.getScriptProperties()
+    .getKeys()
+    .filter(function (clave) {
+      return clave.indexOf(CLUB_SAMOA.notificationQueuePrefix) === 0;
+    });
+  const trigger = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === CLUB_SAMOA.notificationHandler;
+  });
+  console.log("Trigger instalado: " + trigger + " | correos pendientes: " + pendientes.length);
+  return { trigger: trigger, pendientes: pendientes.length };
 }
 
 function sendNotification_(formType, rowValues, spreadsheetUrl) {
