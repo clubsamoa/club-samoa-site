@@ -16,13 +16,28 @@ This folder contains the Google Apps Script backend and Excel templates for the 
 5. Approve the Google permissions.
 6. Check the execution log. It will show the URLs for the two connected Google Sheets.
 7. Optional: run `configureNotificationEmail("tu-correo@example.com")` to choose where notifications go.
-8. Deploy the project as a Web App.
-9. Set **Execute as** to `Me`.
-10. Set **Who has access** to `Anyone`.
-11. Copy the Web App URL ending in `/exec`.
-12. Paste that URL into `registration-config.js`.
+8. Run `instalarTriggerDeNotificaciones` once. Without it the emails still go out, but inline — see **Notificaciones por correo** below.
+9. Deploy the project as a Web App.
+10. Set **Execute as** to `Me`.
+11. Set **Who has access** to `Anyone`.
+12. Copy the Web App URL ending in `/exec`.
+13. Put that URL in the `APPS_SCRIPT_REGISTROS_URL` environment variable — in `.env.local` and in Netlify. **Never commit it**: this repo is public and the endpoint has no auth, so anyone with the URL can write to the Sheets.
 
 After that, the website forms will save rows into the matching Google Sheet and send an email notification for each new registration.
+
+### Notificaciones por correo
+
+`MailApp.sendEmail` tarda lo que tarda, y en el ensayo de cutover (N21) pasó de los 20 s que espera el sitio. Como la fila se escribe **antes** del correo, el alumno veía "no se pudo enviar" con su registro ya guardado: reenviaba, se generaba un `submission_id` nuevo y quedaba duplicado.
+
+Por eso `doPost` ya no manda el correo: escribe la fila, deja el aviso en una cola (Script Properties, una propiedad por pendiente) y responde. El trigger `enviarNotificacionesPendientes` la vacía cada minuto.
+
+- **`instalarTriggerDeNotificaciones()`** — se corre una sola vez desde el editor. Si se corre de nuevo no duplica el trigger.
+- **`estadoDeLaColaDeNotificaciones()`** — imprime si el trigger está puesto y cuántos avisos quedan sin mandar.
+- **`desinstalarTriggerDeNotificaciones()`** — lo quita.
+
+Si el trigger no está instalado, `doPost` lo detecta y manda el correo en línea igual que antes, dejando un aviso en el log: nunca se pierde una notificación, pero se vuelve a correr el riesgo del timeout. Un correo que falle se reintenta 3 veces y después se descarta con un `console.error` — la fila en la Sheet no se toca nunca.
+
+Las pruebas de esta lógica están en `lib/__tests__/code-gs-notificaciones.test.ts`: cargan este `Code.gs` en un `vm` con los servicios de Google sustituidos por dobles, porque desde el repo no hay forma de desplegarlo para probarlo.
 
 ---
 
