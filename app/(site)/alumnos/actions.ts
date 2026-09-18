@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import {
   FORM_VARIANTS,
+  resolverSubmissionId,
   type FormVariant,
   type RegistroState,
 } from "@/lib/registros";
@@ -61,7 +62,9 @@ export async function submitRegistro(
 
   // Mismo shape de payload que legacy/script.js:117-145: multivalor unido
   // por ", ", más form_type / submission_id / page_url / user_agent.
-  const submissionId = crypto.randomUUID();
+  // Del cliente, para que un reintento reuse el mismo folio y el backend lo
+  // deduplique en vez de crear una fila nueva.
+  const submissionId = resolverSubmissionId(formData.get("submission_id"));
   const requestHeaders = await headers();
   const payload = new URLSearchParams();
   for (const [key, value] of Object.entries(parsed.data)) {

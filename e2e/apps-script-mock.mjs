@@ -21,6 +21,18 @@ const PORT = Number(process.env.MOCK_PORT ?? 8788);
  *  que el spec del formulario pueda asegurar qué llegó "a la Sheet". */
 let lastRegistro = null;
 
+/** TODAS las solicitudes de registro, en orden. El spec de idempotencia las
+ *  compara para comprobar que un reintento reusa el mismo submission_id. */
+const registros = [];
+
+/** Cuántos envíos deben fallar a propósito, POR NOMBRE DE ALUMNO. La clave es
+ *  el nombre y no un contador global porque los specs corren en paralelo
+ *  contra este mismo mock: un contador compartido hacía que el fallo simulado
+ *  de un spec se lo comiera otro. Reproduce el fallo de N21 — Apps Script
+ *  escribe la fila y la respuesta no vuelve — así que la solicitud SE
+ *  REGISTRA igual antes de devolver el error. */
+const porFallar = new Map();
+
 // ── Dataset fijo (N20) ─────────────────────────────────────────
 // Un evento con 2 atletas aprobados, 1 bracket y 1 pelea, con las formas
 // EXACTAS de lib/schemas.ts (en dev, parseOrWarn lanza ante un mismatch).
@@ -142,11 +154,41 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/registros" && req.method === "POST") {
     const body = await readBody(req);
     lastRegistro = Object.fromEntries(new URLSearchParams(body));
+    // Se anota ANTES de decidir si falla: así el doble registro con el mismo
+    // submission_id queda a la vista, que es lo que el spec comprueba.
+    registros.push(lastRegistro);
+    const pendientes = porFallar.get(lastRegistro.nombre) ?? 0;
+    if (pendientes > 0) {
+      porFallar.set(lastRegistro.nombre, pendientes - 1);
+      return json(res, 500, { ok: false, error: "Fallo simulado del backend" });
+    }
     return json(res, 200, { ok: true });
   }
 
+  // Los tres endpoints de inspección aceptan ?nombre= para que cada spec mire
+  // solo lo suyo y no le afecte lo que mande otro spec en paralelo.
   if (url.pathname === "/registros/__last") {
-    return json(res, 200, lastRegistro ?? {});
+    const nombre = url.searchParams.get("nombre");
+    const propios = nombre
+      ? registros.filter((r) => r.nombre === nombre)
+      : registros;
+    return json(res, 200, propios[propios.length - 1] ?? lastRegistro ?? {});
+  }
+
+  if (url.pathname === "/registros/__todos") {
+    const nombre = url.searchParams.get("nombre");
+    return json(res, 200, {
+      registros: nombre
+        ? registros.filter((r) => r.nombre === nombre)
+        : registros,
+    });
+  }
+
+  if (url.pathname === "/registros/__fallar" && req.method === "POST") {
+    const nombre = url.searchParams.get("nombre") ?? "";
+    const n = Number(url.searchParams.get("n") ?? 1);
+    porFallar.set(nombre, n);
+    return json(res, 200, { ok: true, nombre, n });
   }
 
   if (url.pathname === "/eventos") {

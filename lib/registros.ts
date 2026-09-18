@@ -112,6 +112,24 @@ export const FORM_VARIANTS = {
 
 export type FormVariant = keyof typeof FORM_VARIANTS;
 
+// Un submission_id ESTABLE por pedido es lo que hace idempotente un reenvío:
+// el backend deduplica por ese campo (findSubmission_ en Code.gs) y devuelve
+// duplicate:true sin escribir. Sin esto, un envío que falla por timeout con la
+// fila ya escrita se duplica en cuanto el alumno reintenta — que es justo lo
+// que pasó en el ensayo de N21.
+//
+// Lo genera el cliente, así que aquí solo se valida la forma: cualquier cosa
+// que no sea un UUID se descarta y se genera uno nuevo en el servidor (es lo
+// que ocurría siempre antes de este cambio, o sea que se degrada al
+// comportamiento viejo en vez de escribir basura en la Sheet).
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function resolverSubmissionId(enviado: unknown): string {
+  const valor = typeof enviado === "string" ? enviado.trim().toLowerCase() : "";
+  return UUID.test(valor) ? valor : crypto.randomUUID();
+}
+
 export type RegistroState =
   | { status: "idle" }
   | { status: "success"; submissionId: string }
