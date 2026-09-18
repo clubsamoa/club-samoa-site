@@ -699,29 +699,34 @@ Las URLs de Apps Script viven en `legacy/registration-config.js`, versionado en 
 
 ## Tarea N21: Deploy y corte de dominio
 
-**Branch:** `next/21-deploy`
-**Estimación:** L · **Depende de:** N19, N20
+**Branch:** `next/21-deploy` · **Estimación:** L · **Depende de:** N19, N20
+**Estado: ensayo general HECHO (18 sep 2026). El corte de DNS queda BLOQUEADO — no hay dominio propio.**
 
-**Qué hacer:**
-1. Variables de entorno de **producción** en Netlify, con las URLs de Apps Script **ya rotadas** (N11) y `NEXT_PUBLIC_SITE_URL` con el dominio real.
-2. Añadir el URI de redirección OAuth de producción en Google Cloud Console.
-3. **Ensayo general en el preview deploy**, con checklist:
-   - [ ] Las 3 páginas públicas en móvil y escritorio.
-   - [ ] Los 3 formularios escriben en la Sheet real.
-   - [ ] Login del admin con las cuentas reales.
-   - [ ] Evento de prueba de punta a punta: crear → inscribir → pesar → bracket → 2 peleas → resumen.
-   - [ ] Vista pública del scoreboard en un proyector de verdad.
-   - [ ] Lighthouse ≥ 90 en las 3 públicas.
-4. Merge de `feat/nextjs-migration` a `main`.
-5. **Corte de DNS** al dominio real (el proyecto de Netlify ya existe). Hacerlo en un momento de bajo tráfico y **nunca la víspera de un evento**.
-6. Verificar en producción los 10 redirects 301 de N08.
-7. Activar Netlify Analytics.
-8. Enviar el sitemap en Google Search Console y vigilar errores de rastreo durante 2 semanas.
-9. **`legacy/` se conserva.** No se borra en esta tarea.
+### Qué se hizo
 
-**Criterio de aceptación:** el dominio sirve la app Next, los formularios funcionan y el admin es accesible solo con sesión.
+1. ✅ Variables de entorno de producción en Netlify: las 5 presentes en contexto `all`, con las URLs de Apps Script ya rotadas (N11). `NEXT_PUBLIC_SITE_URL` apunta a `clubsamoa.netlify.app`, que es lo correcto **mientras no haya dominio propio**.
+2. ~~Añadir el URI de redirección OAuth en Google Cloud Console.~~ **Obsoleto:** N11b cambió Google OAuth por contraseña compartida. No hay nada que registrar.
+3. **Ensayo general** (se corrió contra producción, no contra un preview: `main` ya estaba desplegado ahí):
+   - [x] Las 3 páginas públicas en móvil y escritorio — sin overflow horizontal a 375 y 1440 px.
+   - [x] Los 3 formularios escriben en la Sheet real — y destaparon el fallo de timeout, ver abajo.
+   - [ ] Login del admin con las cuentas reales — **manual, pendiente**. Verificado en cambio que el hash está bien puesto en producción: `/login` muestra el formulario y no el aviso de «falta configurar».
+   - [x] Evento de prueba de punta a punta — `e2e/evento-completo.spec.ts` verde contra la Sheet real en ~1.7 min, dejándola en su baseline. El spec nunca se había corrido y tenía 5 bugs (ver su commit).
+   - [ ] Vista pública del scoreboard en un proyector de verdad — **manual, pendiente**.
+   - [x] Lighthouse ≥ 90 en las 3 públicas — escritorio 99/99/99, móvil 96/99/97; a11y, best-practices y SEO en 100 las seis. Ojo: **la primera corrida de un lote da un falso ~68 en la home** por arranque en frío; hay que descartarla.
+4. ~~Merge de `feat/nextjs-migration` a `main`.~~ **No aplica:** esa rama de integración nunca se creó; cada tarea se mergeó directo a `main`.
+5. ⛔ **Corte de DNS: BLOQUEADO.** El proyecto de Netlify no tiene `custom_domain`. Hasta que haya dominio, el sitio oficial es `clubsamoa.netlify.app`. Al comprarlo hay que cambiar `NEXT_PUBLIC_SITE_URL` y volver a verificar canonical, sitemap y `og:image`.
+6. [x] Redirects verificados en producción. Los 3 públicos dan 308 (equivalente a 301). **Los 7 de `/admin/*.html` divergen entre entornos:** en local los resuelve `next.config` antes del proxy (308 al destino), pero en Netlify gana el proxy de auth y devuelven 307 a `/login?from=…html`. Se llega al mismo sitio tras el login y son URLs bloqueadas por robots, así que se documentó en vez de arreglarse. `e2e/seo.spec.ts` cubre los 3 públicos y explica por qué omite los 7 del admin.
+7. [ ] Activar Netlify Analytics — **pendiente, es de pago** (add-on mensual). Decisión del club.
+8. [ ] Enviar el sitemap en Google Search Console y vigilar el rastreo 2 semanas — **pendiente, requiere la cuenta de Google del club**.
+9. ✅ `legacy/` se conserva.
 
-**Commit sugerido:** `chore(deploy): cutover a netlify`
+### Lo que encontró el ensayo
+
+- **`og:image` perdido en `/alumnos` y `/comunidad`.** Next no fusiona el `openGraph` de una página con el del layout: lo reemplaza entero. Los links se compartían sin imagen por WhatsApp. Arreglado con `OG_IMAGE` en `lib/constants.ts` y `e2e/seo.spec.ts` como guardia.
+- **Los registros fallan de forma intermitente por timeout.** `MailApp.sendEmail` corría dentro de `doPost` y llegaba a pasarse de los 20 s del cliente; como el `appendRow` va antes, la fila quedaba guardada y el alumno veía error, reenviaba y la duplicaba. El correo se movió a una cola que vacía un trigger cada minuto (Versión 4 del Web App de registros, desplegada y verificada). **No está demostrado que esto elimine los timeouts** — eran intermitentes y no se han vuelto a reproducir; el cambio se sostiene porque MailApp es la parte no acotada, no porque se midiera una mejora.
+- **La auditoría de axe era inestable**: fallaba una de cada dos corridas por medir el color de un elemento a media transición. La auditoría ahora congela transiciones antes de correr axe.
+
+**Criterio de aceptación:** cumplido salvo la parte del dominio — la app Next sirve el sitio, los formularios escriben y el admin solo es accesible con sesión (verificado: las 18 escrituras de la API dan 401 sin sesión y `setup` queda fuera de la allowlist).
 
 ---
 
