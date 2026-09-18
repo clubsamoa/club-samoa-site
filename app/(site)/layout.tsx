@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Header from "@/components/site/Header";
 import SmokeBackground from "@/components/site/SmokeBackground";
 import { clubSamoaJsonLd } from "@/lib/jsonld";
+import { OG_IMAGE } from "@/lib/constants";
 
 // Chrome del sitio público: fondo WebGL, header con nav y JSON-LD. No se
 // aplica al admin ni a las vistas de proyección.
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
     title: "Club Samoa Escuela de Artes Marciales",
     description:
       "Lima Lama, Kickboxing, Muay Thai, MMA y Jiu Jitsu en Ciudad Madero, Tamaulipas. Desde 1983.",
-    images: [{ url: "/images/valeria.jpg", width: 1440, height: 959 }],
+    images: [OG_IMAGE],
   },
   twitter: { card: "summary_large_image" },
 };
