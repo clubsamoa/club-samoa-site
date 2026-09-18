@@ -25,10 +25,21 @@ test.skip(
 const RUN = new Date().toISOString().slice(5, 19).replace(/[-:T]/g, "");
 const EVENTO_NOMBRE = `E2E Evento ${RUN}`;
 
-const GANADOR = { nombre_completo: `E2E Uno ${RUN}`, peso_referencia_kg: 70 };
+// Apps Script tarda entre 2 y 10 s por llamada, y a veces la conexión a
+// script.google.com se cuelga y hay que reintentar. Los `toBeVisible` por
+// defecto esperan 5 s: en la primera corrida real de este spec (ensayo de
+// N21) eso bastó para que el evento SÍ se creara en la Sheet y el test lo
+// diera por fallido. Todo lo que dependa del backend usa este timeout.
+const ESPERA_BACKEND = 60_000;
+
+// Los dos pesos tienen que caer en la MISMA categoría o el bracket no es
+// viable y «Confirmar todos los viables» queda deshabilitado. 70 y 71 kg
+// caían en Peso Ligero (<70.3) y Superligero — una categoría de un atleta
+// cada una. 68 y 69 kg son ambos Peso Ligero varonil.
+const GANADOR = { nombre_completo: `E2E Uno ${RUN}`, peso_referencia_kg: 68 };
 const ATLETAS = [
   GANADOR,
-  { nombre_completo: `E2E Dos ${RUN}`, peso_referencia_kg: 71 },
+  { nombre_completo: `E2E Dos ${RUN}`, peso_referencia_kg: 69 },
 ];
 
 async function login(page: Page) {
@@ -57,10 +68,42 @@ async function apiPost(
   return (await res.json()) as Record<string, unknown>;
 }
 
+// La limpieza corre en el finally: si una llamada truena no puede tirar el
+// resto, o quedan filas de prueba en la Sheet real.
+async function borrarSinRomper(page: Page, action: string, id: string) {
+  try {
+    const res = await page.request.post(`/api/eventos/${action}`, {
+      data: { id },
+    });
+    if (!res.ok())
+      console.log(`[limpieza] ${action} ${id}: HTTP ${res.status()}`);
+  } catch (error) {
+    console.log(`[limpieza] ${action} ${id} falló: ${String(error)}`);
+  }
+}
+
+// Si el test truena ANTES de leer el id de la URL, el evento ya existe en la
+// Sheet y se quedaría ahí para siempre. Se busca por nombre para borrarlo.
+async function buscarEventoPorNombre(page: Page, nombre: string) {
+  try {
+    const res = await page.request.get("/api/eventos/eventos.list");
+    if (!res.ok()) return "";
+    const data = (await res.json()) as {
+      eventos?: { id: string; nombre: string }[];
+    };
+    return data.eventos?.find((e) => e.nombre === nombre)?.id ?? "";
+  } catch {
+    return "";
+  }
+}
+
 test("evento completo: crear → inscribir → pesar → bracket → pelea → finalizar", async ({
   page,
 }) => {
-  test.setTimeout(300_000); // Apps Script es lento; el flujo hace ~20 llamadas.
+  // Apps Script es lento (2-10 s por llamada) y el flujo hace ~20. Si el test
+  // se pasa del timeout, Playwright lo aborta y el `finally` de limpieza NO
+  // corre: quedan evento y atletas de prueba en la Sheet real. Margen amplio.
+  test.setTimeout(600_000);
 
   const atletaIds: string[] = [];
   let eventoId = "";
@@ -91,13 +134,25 @@ test("evento completo: crear → inscribir → pesar → bracket → pelea → f
       await modal.locator('input[name="fecha"]').fill("2027-06-12");
       await modal.locator('input[name="sede"]').fill("Sede de pruebas E2E");
       await modal.getByRole("button", { name: "Guardar" }).click();
-      await expect(page.getByText(EVENTO_NOMBRE)).toBeVisible();
+
+      // El listado abre filtrado por «Activo» y un evento recién creado nace
+      // en «borrador»: sin cambiar el filtro no aparece nunca. (Así falló la
+      // primera corrida real de este spec, en el ensayo de N21.)
+      await page
+        .getByRole("group", { name: "Filtro de estatus" })
+        .getByRole("button", { name: "Todos" })
+        .click();
+      await expect(page.getByText(EVENTO_NOMBRE)).toBeVisible({
+        timeout: ESPERA_BACKEND,
+      });
 
       const card = page.locator(".evento-card, article, li", {
         hasText: EVENTO_NOMBRE,
       });
       await card.getByRole("link", { name: "Ver evento →" }).first().click();
-      await expect(page).toHaveURL(/\/admin\/eventos\/evt_/);
+      await expect(page).toHaveURL(/\/admin\/eventos\/evt_/, {
+        timeout: ESPERA_BACKEND,
+      });
       eventoId = page.url().match(/eventos\/(evt_[^/?#]+)/)?.[1] ?? "";
       expect(eventoId).not.toBe("");
     });
@@ -114,8 +169,10 @@ test("evento completo: crear → inscribir → pesar → bracket → pelea → f
           .check();
       }
       await modal.getByRole("button", { name: /^Inscribir/ }).click();
-      await expect(modal).toBeHidden();
-      await expect(page.getByText("2 inscritos")).toBeVisible();
+      await expect(modal).toBeHidden({ timeout: ESPERA_BACKEND });
+      await expect(page.getByText("2 inscritos")).toBeVisible({
+        timeout: ESPERA_BACKEND,
+      });
     });
 
     await test.step("pesar y aprobar a los 2", async () => {
@@ -152,7 +209,11 @@ test("evento completo: crear → inscribir → pesar → bracket → pelea → f
       await expect(page.locator(".bracket-live-card")).toHaveCount(1, {
         timeout: 60_000,
       });
-      await expect(page.getByText("0 / 1 peleas decididas")).toBeVisible();
+      // El contador sale dos veces (resumen de brackets y cabecera del
+      // bracket), así que hay que desempatar o Playwright tira strict mode.
+      await expect(
+        page.getByText("0 / 1 peleas decididas").first(),
+      ).toBeVisible({ timeout: ESPERA_BACKEND });
     });
 
     await test.step("operar la pelea en el scoreboard y finalizarla", async () => {
@@ -164,31 +225,57 @@ test("evento completo: crear → inscribir → pesar → bracket → pelea → f
 
       await page.getByRole("button", { name: "✓ Finalizar pelea" }).click();
       const modal = page.getByRole("dialog");
-      await modal.getByRole("radio", { name: GANADOR.nombre_completo }).check();
+      // El radio real está oculto bajo la píldora: el <span> intercepta el
+      // puntero y check() se queda reintentando hasta agotar el test. Se
+      // clica la etiqueta, que es lo que hace el operador, y se comprueba
+      // que el input quedó seleccionado.
+      const pildora = modal.locator("label.radio-pill", {
+        hasText: GANADOR.nombre_completo,
+      });
+      await pildora.click();
+      await expect(pildora.locator('input[type="radio"]')).toBeChecked();
       await modal.locator('select[name="metodo"]').selectOption("Decisión");
       await modal
         .getByRole("button", { name: "Guardar y volver al bracket" })
         .click();
 
-      // De vuelta en el evento: la pelea quedó decidida.
-      await expect(page).toHaveURL(/\/admin\/eventos\//, { timeout: 60_000 });
-      await expect(page.getByText("1 / 1 peleas decididas")).toBeVisible({
-        timeout: 60_000,
+      // De vuelta en el evento. Ojo: el botón dice "volver al bracket" pero
+      // la app aterriza en la pestaña Resumen, y ahí el contador NO dice
+      // "1 / 1 peleas decididas" (esa redacción es la de Brackets) sino
+      // "1 / 1 peleas (100%)" con el sello de todas decididas.
+      await expect(page).toHaveURL(/\/admin\/eventos\//, {
+        timeout: ESPERA_BACKEND,
+      });
+      const resumen = page.getByRole("tabpanel", { name: "Resumen" });
+      await expect(resumen.getByText("Todas decididas")).toBeVisible({
+        timeout: ESPERA_BACKEND,
       });
     });
 
-    await test.step("resumen: el ganador aparece", async () => {
-      await page.getByRole("tab", { name: "Resumen" }).click();
-      await expect(
-        page.getByText(GANADOR.nombre_completo).first(),
-      ).toBeVisible();
+    await test.step("resumen: el ganador sube al podio", async () => {
+      const resumen = page.getByRole("tabpanel", { name: "Resumen" });
+      // 🥇 y 🥈 en el orden correcto: el ganador de la final es el oro.
+      await expect(resumen.getByText("🥇")).toBeVisible({
+        timeout: ESPERA_BACKEND,
+      });
+      const podio = await resumen.innerText();
+      const oro = podio.indexOf(GANADOR.nombre_completo);
+      const plata = podio.indexOf(ATLETAS[1]!.nombre_completo);
+      expect(oro, "el ganador no aparece en el resumen").toBeGreaterThan(-1);
+      expect(
+        oro,
+        "el ganador debería ir antes que el perdedor en el podio",
+      ).toBeLessThan(plata);
     });
   } finally {
     // Limpieza: eventos.delete borra en cascada inscripciones, brackets y
     // peleas; los atletas se borran aparte.
-    if (eventoId) await apiPost(page, "eventos.delete", { id: eventoId });
+    const idParaBorrar =
+      eventoId || (await buscarEventoPorNombre(page, EVENTO_NOMBRE));
+    if (idParaBorrar)
+      await borrarSinRomper(page, "eventos.delete", idParaBorrar);
     for (const id of atletaIds) {
-      await apiPost(page, "atletas.delete", { id });
+      await borrarSinRomper(page, "atletas.delete", id);
     }
   }
 });
