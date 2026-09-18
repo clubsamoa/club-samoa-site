@@ -38,6 +38,20 @@ export default function RegistroForm({
   const formRef = useRef<HTMLFormElement>(null);
   const confirmationRef = useRef<HTMLElement>(null);
 
+  // Folio del pedido en curso. Se genera al primer envío y se REUSA en los
+  // reintentos: el backend deduplica por submission_id, así que reenviar tras
+  // un error no duplica la fila. Se limpia al confirmarse el pedido para que
+  // el siguiente empiece con folio nuevo.
+  const submissionIdRef = useRef("");
+  const folioDelPedido = () => {
+    if (!submissionIdRef.current) {
+      // Si el navegador no tuviera randomUUID, se manda sin folio y el
+      // servidor genera uno: se pierde la idempotencia, no el pedido.
+      submissionIdRef.current = crypto.randomUUID?.() ?? "";
+    }
+    return submissionIdRef.current;
+  };
+
   // Validación del grupo de checkboxes (puerto de script.js:97-115): el
   // primer checkbox del grupo lleva el custom validity para que
   // reportValidity() muestre el globo nativo.
@@ -69,6 +83,7 @@ export default function RegistroForm({
     if (state.status === "success") {
       // Como en legacy: reset solo en éxito, antes de mostrar el panel.
       formRef.current?.reset();
+      submissionIdRef.current = "";
       confirmationRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
@@ -89,6 +104,8 @@ export default function RegistroForm({
           const form = event.currentTarget;
           if (!form.reportValidity()) return;
           const formData = new FormData(form);
+          const folio = folioDelPedido();
+          if (folio) formData.set("submission_id", folio);
           startTransition(() => formAction(formData));
         }}
       >
