@@ -8,6 +8,7 @@ Plan de ejecución de `PLAN-nextjs.md`. Cada tarea es independientemente testabl
 
 - **Rama de integración:** `feat/nextjs-migration` (sale de `main`). Todas las tareas salen de ahí y vuelven ahí. `main` solo recibe el merge final en N21.
 - **Naming de ramas:** `next/NN-slug-corto` donde `NN` es el número de tarea de este documento.
+  - ⚠️ **Excepción ya en el historial:** la rama `next/23-registro-idempotente` (merge `f9031f0`, 18 sep 2026) **no es N23**. Es la cura del duplicado de registros que encontró el ensayo de N21 — folio estable por pedido — y se numeró mal. N23 (Sheets → Postgres) sigue sin empezar.
 - **Antes de cada tarea:** `git checkout feat/nextjs-migration && git pull && git checkout -b next/NN-slug`
 - **Al terminar:** commit → `git push -u origin next/NN-slug` → PR contra `feat/nextjs-migration` → merge.
 - **Mensajes de commit:** Conventional Commits, igual que `TASKS.md`.
@@ -754,7 +755,7 @@ No bloquean nada y se evalúan después del cutover.
 
 | # | Tarea | Cuándo tiene sentido |
 |---|-------|----------------------|
-| N23 | Migrar Sheets → Postgres (Neon/Supabase) + Drizzle | Si la latencia de 1–3 s de Apps Script estorba en el pesaje o el volumen de eventos crece. |
+| N23 | Migrar Sheets → Postgres (Neon/Supabase) + Drizzle | **Sin empezar** (ojo: la rama `next/23-registro-idempotente` del historial NO es esta tarea, ver Convenciones). Justificada por lo medido en el ensayo de N21: 2–4 s por llamada, timeouts de 20 s y escrituras que no se pueden reintentar sin duplicar. |
 | N24 | Scoreboard en tiempo real vía SSE | Si alguna vez se necesita operar el marcador desde un dispositivo distinto al del proyector. |
 | N25 | CSS global → CSS Modules por componente | Deuda conocida de la decisión D2. Archivo por archivo, sin prisa. |
 | N26 | PWA / modo offline en el pesaje | Si el wifi del gimnasio falla el día del evento. |
