@@ -1240,6 +1240,13 @@ textarea {
   padding: 18px;
 }
 
+/* Póster completo a su proporción real (ej. 16:9), sin el recorte de 280px. */
+.event-poster--completo {
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+}
+
 .event-copy {
   display: grid;
   gap: 10px;
