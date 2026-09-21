@@ -18,28 +18,20 @@ export type Torneo = {
 
 export const TORNEOS_PROXIMOS: Torneo[] = [
   {
-    fecha: "6 al 9 de agosto",
-    titulo: "Campeonato Nacional de Artes Marciales Mixtas - FAMM",
-    sede: "Córdoba, Veracruz.",
-    poster: "/images/campeonato-nacional-2026.jpg",
+    fecha: "1 al 7 de noviembre",
+    titulo: "Campeonato Mundial IMMAF 2026",
+    sede: "Tbilisi, Georgia.",
+    poster: "/images/2026-immaf-world-championships.jpg",
     posterWidth: 845,
     posterHeight: 315,
-    posterAlt:
-      "Poster del Campeonato Nacional de Artes Marciales Mixtas 2026 - Córdoba, Veracruz",
+    posterAlt: "Poster del Campeonato Mundial IMMAF 2026 - Tbilisi, Georgia",
     registroAbierto: true,
   },
+];
+
+export const TORNEOS_PASADOS: Torneo[] = [
   {
-    fecha: "16 al 23 de agosto",
-    titulo: "Campeonato Mundial Juvenil IMMAF 2026",
-    sede: "Abu Dhabi, Emiratos Árabes Unidos.",
-    poster: "/images/2026-immaf-youth-world-championships.jpg",
-    posterWidth: 845,
-    posterHeight: 315,
-    posterAlt: "Poster del Campeonato Mundial Juvenil IMMAF 2026 - Abu Dhabi",
-    registroAbierto: true,
-  },
-  {
-    fecha: "9 al 15 de septiembre",
+    fecha: "9 al 15 de septiembre 2026",
     titulo: "Campeonato Panamericano IMMAF 2026",
     sede: "Monterrey, México.",
     poster: "/images/2026-immaf-pan-american-championships.jpg",
@@ -47,22 +39,29 @@ export const TORNEOS_PROXIMOS: Torneo[] = [
     posterHeight: 315,
     posterAlt:
       "Poster del Campeonato Panamericano IMMAF 2026 - Monterrey, México",
-    registroAbierto: true,
+    registroAbierto: false,
   },
   {
-    fecha: "1 al 7 de noviembre",
-    titulo: "Campeonato Mundial IMMAF 2026",
-    sede: "Tbilisi, Georgia.",
-    poster: "/images/immaf.jpg",
-    posterWidth: 2048,
-    posterHeight: 2048,
-    posterAlt: "Campeonato Mundial IMMAF 2026 - Tbilisi, Georgia",
-    posterLogo: true,
-    registroAbierto: true,
+    fecha: "16 al 23 de agosto 2026",
+    titulo: "Campeonato Mundial Juvenil IMMAF 2026",
+    sede: "Abu Dhabi, Emiratos Árabes Unidos.",
+    poster: "/images/2026-immaf-youth-world-championships.jpg",
+    posterWidth: 845,
+    posterHeight: 315,
+    posterAlt: "Poster del Campeonato Mundial Juvenil IMMAF 2026 - Abu Dhabi",
+    registroAbierto: false,
   },
-];
-
-export const TORNEOS_PASADOS: Torneo[] = [
+  {
+    fecha: "6 al 9 de agosto 2026",
+    titulo: "Campeonato Nacional de Artes Marciales Mixtas - FAMM",
+    sede: "Córdoba, Veracruz.",
+    poster: "/images/campeonato-nacional-2026.jpg",
+    posterWidth: 845,
+    posterHeight: 315,
+    posterAlt:
+      "Poster del Campeonato Nacional de Artes Marciales Mixtas 2026 - Córdoba, Veracruz",
+    registroAbierto: false,
+  },
   {
     fecha: "22-24 de Mayo 2026",
     titulo: "Campeonato Regional de Artes Marciales Mixtas 2026",
