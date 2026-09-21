@@ -12,11 +12,25 @@ export type Torneo = {
   posterHeight: number;
   /** Clase extra del póster (ej. logos que no son póster completo). */
   posterLogo?: boolean;
+  /** Muestra el póster completo sin recortar (formatos distintos a 845x315, ej. 16:9). */
+  posterCompleto?: boolean;
   /** Si es true, muestra el botón de registro por WhatsApp. */
   registroAbierto: boolean;
 };
 
 export const TORNEOS_PROXIMOS: Torneo[] = [
+  {
+    fecha: "24 de octubre",
+    titulo: "Campeonato Abierto de Artes Marciales - Club Samoa",
+    sede: "Ciudad Madero, Tamaulipas - Domo Uno (Centro de Convenciones).",
+    poster: "/images/campeonato-abierto-samoa-2026.jpg",
+    posterWidth: 1600,
+    posterHeight: 900,
+    posterAlt:
+      "Poster del Campeonato Abierto de Artes Marciales 2026 - Ciudad Madero, Tamaulipas",
+    posterCompleto: true,
+    registroAbierto: true,
+  },
   {
     fecha: "1 al 7 de noviembre",
     titulo: "Campeonato Mundial IMMAF 2026",

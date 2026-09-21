@@ -8,7 +8,13 @@ export default function TorneoCard({ torneo }: { torneo: Torneo }) {
   return (
     <article className="event-card featured-event-card">
       <Image
-        className={`event-poster${torneo.posterLogo ? " event-poster--logo" : ""}`}
+        className={[
+          "event-poster",
+          torneo.posterLogo && "event-poster--logo",
+          torneo.posterCompleto && "event-poster--completo",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         src={torneo.poster}
         alt={torneo.posterAlt}
         width={torneo.posterWidth}
