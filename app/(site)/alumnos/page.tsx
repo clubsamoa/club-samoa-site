@@ -199,10 +199,10 @@ export default function AlumnosPage() {
           <h2 className="section-page-title">Uniformes</h2>
           <Image
             className="section-feature-image"
-            src="/images/uniformes-no.png"
-            alt="Uniformes disponibles para alumnos Club Samoa"
-            width={940}
-            height={788}
+            src="/images/uniformes-2027.jpeg"
+            alt="Uniforme 2027 de Club Samoa, frente y espalda"
+            width={1600}
+            height={1000}
             sizes="(max-width: 980px) 100vw, 45vw"
             style={{ height: "auto" }}
           />
