@@ -25,9 +25,6 @@ export const metadata: Metadata = {
   },
 };
 
-const REGISTRO_GOOGLE_FORM_URL =
-  "https://docs.google.com/forms/d/e/1FAIpQLSegmOny29CU4m2uuKxoblRP3gCX8T9Mrm-V_pmnuqCLhOhK5w/viewform";
-
 // Los grados con "Cafe" guardan el valor sin acento (así los espera la Sheet,
 // ver legacy/students.html:306-308) pero se muestran con acento.
 const GRADOS_LIMA_KICK_OPTIONS = [
@@ -153,22 +150,6 @@ export default function AlumnosPage() {
           </div>
         </div>
         <div className="hero-panel">
-          <div className="hero-registration">
-            <p className="hero-registration-copy">
-              ¿Ya te registraste? Completa tu registro aquí.
-            </p>
-            <a
-              className="button button-primary hero-registration-button"
-              href={REGISTRO_GOOGLE_FORM_URL}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Completar registro
-            </a>
-            <p className="hero-registration-note">
-              Si ya hiciste tu registro NO es necesario que lo vuelvas a hacer
-            </p>
-          </div>
           <div className="hero-stat">
             <span className="stat-label">Exámenes Lima Lama</span>
             <strong>
