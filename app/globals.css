@@ -1036,6 +1036,28 @@ textarea {
   line-height: 1.4;
 }
 
+/* Panel de exámenes: mismo aspecto que .data-form, pero solo texto y botón. */
+.examen-contacto {
+  gap: 14px;
+}
+
+.examen-contacto h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+.examen-contacto p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.examen-contacto .button {
+  width: fit-content;
+  margin-top: 6px;
+}
+
 .data-form input,
 .data-form select,
 .data-form textarea {

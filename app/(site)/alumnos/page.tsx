@@ -1,16 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import RegistroForm from "@/components/site/RegistroForm";
-import { OG_IMAGE } from "@/lib/constants";
-import {
-  DISCIPLINAS_EXAMEN_LIMA_KICK,
-  DISCIPLINAS_EXAMEN_MMA_JJ,
-  DISCIPLINAS_UNIFORME,
-  FECHAS_LIMA_KICK,
-  FECHAS_MMA_JJ,
-  PRODUCTOS,
-  TALLAS,
-} from "@/lib/registros";
+import SocialIcon from "@/components/site/SocialIcon";
+import { OG_IMAGE, WHATSAPP_URL } from "@/lib/constants";
+import { DISCIPLINAS_UNIFORME, PRODUCTOS, TALLAS } from "@/lib/registros";
 
 export const metadata: Metadata = {
   title: "Club Samoa | Portal de Alumnos",
@@ -20,30 +13,20 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Club Samoa | Portal de Alumnos",
     description:
-      "Pedidos de uniformes y registro de exámenes de grado para alumnos de Club Samoa.",
+      "Pedidos de uniformes e información de exámenes de grado para alumnos de Club Samoa.",
     images: [OG_IMAGE],
   },
 };
 
-// Los grados con "Cafe" guardan el valor sin acento (así los espera la Sheet,
-// ver legacy/students.html:306-308) pero se muestran con acento.
-const GRADOS_LIMA_KICK_OPTIONS = [
-  { value: "Cinta Naranja", label: "Cinta Naranja" },
-  { value: "Cinta Morada", label: "Cinta Morada" },
-  { value: "Cinta Azul", label: "Cinta Azul" },
-  { value: "Cinta Verde", label: "Cinta Verde" },
-  { value: "Cinta Cafe I", label: "Cinta Café I" },
-  { value: "Cinta Cafe II", label: "Cinta Café II" },
-  { value: "Cinta Cafe III", label: "Cinta Café III" },
-  { value: "Cinta Negra", label: "Cinta Negra" },
-];
-
-const GRADOS_MMA_JJ_OPTIONS = [
-  { value: "Blanca", label: "Blanca" },
-  { value: "Azul", label: "Azul" },
-  { value: "Morada", label: "Morada" },
-  { value: "Cafe", label: "Café" },
-];
+// Los exámenes ya no se registran por formulario: se pregunta por WhatsApp
+// con un mensaje prellenado que el alumno solo completa.
+const MENSAJE_EXAMEN = [
+  "Hola, Club Samoa. Quiero saber cuándo es el siguiente examen de grado.",
+  "Alumno: ",
+  "Disciplina (Lima Lama, Kickboxing, MMA o Jiu Jitsu): ",
+  "Grado actual: ",
+].join("\n");
+const WHATSAPP_EXAMENES_URL = `${WHATSAPP_URL}?text=${encodeURIComponent(MENSAJE_EXAMEN)}`;
 
 function CampoNombre({ note }: { note: string }) {
   return (
@@ -261,9 +244,7 @@ export default function AlumnosPage() {
 
       <section className="dual-layout student-section" id="examenes">
         <div className="section-heading">
-          <h2 className="section-page-title">
-            Exámenes de Lima Lama y Kickboxing
-          </h2>
+          <h2 className="section-page-title">Exámenes de grado</h2>
           <Image
             className="section-feature-image"
             src="/images/examen26.jpg"
@@ -273,105 +254,31 @@ export default function AlumnosPage() {
             sizes="(max-width: 980px) 100vw, 45vw"
             style={{ height: "auto" }}
           />
-          <h3>Registro rápido para cambio de grado.</h3>
+          <h3>Pregunta por el siguiente examen.</h3>
           <p>
-            Si eres alumno actual, utiliza este formulario para guardar tu
-            solicitud de cambio de grado.
+            Las fechas de examen de Lima Lama, Kickboxing, MMA y Jiu Jitsu se
+            confirman directamente con el club, según la disciplina y el grado
+            de cada alumno.
           </p>
         </div>
-        <RegistroForm
-          variant="examen-lima-kick"
-          submitLabel="Enviar registro"
-          confirmationEyebrow="Registro recibido"
-          confirmationTitle="Se ha guardado correctamente tu registro"
-        >
-          <CampoNombre note="Escribe el nombre completo del alumno que presentará el examen." />
-          <CampoWhatsapp note="Usaremos este número solo para confirmar detalles del examen." />
-          <CampoSelect
-            label="Disciplina"
-            name="disciplina"
-            placeholder="Selecciona una opción"
-            options={DISCIPLINAS_EXAMEN_LIMA_KICK}
-            note="Selecciona la disciplina del examen."
-          />
-          <CampoSelect
-            label="Grado actual"
-            name="grado"
-            placeholder="Selecciona una opción"
-            options={GRADOS_LIMA_KICK_OPTIONS}
-            note="Indica el grado o cinta actual para validar el registro."
-          />
-          <CampoSelect
-            label="Próximo examen"
-            name="fecha"
-            placeholder="Selecciona una opción"
-            options={FECHAS_LIMA_KICK}
-            note="Selecciona la fecha programada para el cambio de grado."
-          />
-          <CampoNotas
-            label="Observaciones"
-            placeholder="Duda, comprobante pendiente o comentario"
-            note="Campo opcional para dudas, pagos o comentarios."
-          />
-        </RegistroForm>
-      </section>
-
-      <section
-        className="dual-layout student-section"
-        id="examenes-mma-jiujitsu"
-      >
-        <div className="section-heading">
-          <h2 className="section-page-title">Exámenes de MMA &amp; JiuJitsu</h2>
-          <Image
-            className="section-feature-image"
-            src="/images/bjj.jpg"
-            alt="Exámenes de MMA y Jiu Jitsu para alumnos Club Samoa"
-            width={1440}
-            height={1080}
-            sizes="(max-width: 980px) 100vw, 45vw"
-            style={{ height: "auto" }}
-          />
-          <h3>Registro rápido para cambio de grado.</h3>
+        <article className="data-form examen-contacto">
+          <p className="eyebrow">Exámenes</p>
+          <h3>¿Cuándo es el siguiente examen?</h3>
           <p>
-            Si eres alumno actual de MMA o Jiu Jitsu, utiliza este formulario
-            para guardar tu solicitud de cambio de grado.
+            Escríbenos por WhatsApp. El mensaje ya va escrito: solo completa tu
+            nombre, tu disciplina y tu grado actual, y te confirmamos la fecha
+            por ese mismo medio.
           </p>
-        </div>
-        <RegistroForm
-          variant="examen-mma-jj"
-          submitLabel="Enviar registro"
-          confirmationEyebrow="Registro recibido"
-          confirmationTitle="Se ha guardado correctamente tu registro"
-        >
-          <CampoNombre note="Escribe el nombre completo del alumno que presentará el examen." />
-          <CampoWhatsapp note="Usaremos este número solo para confirmar detalles del examen." />
-          <CampoSelect
-            label="Disciplina"
-            name="disciplina"
-            placeholder="Selecciona una opción"
-            options={DISCIPLINAS_EXAMEN_MMA_JJ}
-            note="Selecciona la disciplina del examen."
-          />
-          <CampoSelect
-            label="Grado actual"
-            name="grado"
-            placeholder="Selecciona una opción"
-            options={GRADOS_MMA_JJ_OPTIONS}
-            note="Indica el grado o cinta actual para validar el registro."
-          />
-          <CampoSelect
-            label="Próximo examen"
-            name="fecha"
-            placeholder="Selecciona una opción"
-            options={FECHAS_MMA_JJ}
-            note="Selecciona la fecha programada para el cambio de grado."
-          />
-          <CampoNotas
-            label="Observaciones"
-            placeholder="Duda, comprobante pendiente o comentario"
-            note="Campo opcional para dudas, pagos o comentarios."
-          />
-        </RegistroForm>
+          <a
+            className="button button-primary"
+            href={WHATSAPP_EXAMENES_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <SocialIcon type="whatsapp" />
+            Preguntar por WhatsApp
+          </a>
+        </article>
       </section>
     </main>
   );
