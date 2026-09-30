@@ -50,12 +50,10 @@ export const GRADOS_LIMA_KICK = [
   "Cinta Cafe III",
   "Cinta Negra",
 ] as const;
+// Solo las fechas que faltan del año en curso. Ciclo anual de referencia:
+// Marzo, Abril (Kickboxing), Junio, Agosto (Kickboxing), Septiembre,
+// Diciembre y Diciembre (Kickboxing). Al arrancar el año, reponer las que vengan.
 export const FECHAS_LIMA_KICK = [
-  "Marzo",
-  "Abril (Kickboxing)",
-  "Junio",
-  "Agosto (Kickboxing)",
-  "Septiembre",
   "Diciembre",
   "Diciembre (Kickboxing)",
   "Ninguna",
@@ -63,10 +61,11 @@ export const FECHAS_LIMA_KICK = [
 
 export const DISCIPLINAS_EXAMEN_MMA_JJ = ["MMA", "Jiujitsu"] as const;
 export const GRADOS_MMA_JJ = ["Blanca", "Azul", "Morada", "Cafe"] as const;
+// Ciclo anual de referencia: Mayo y Noviembre para Jiu Jitsu; MMA sin fecha
+// fija. Al arrancar el año, reponer "Mayo - Jiu Jitsu".
 export const FECHAS_MMA_JJ = [
-  "Mayo - Jiu Jitsu",
   "Noviembre - Jiu Jitsu",
-  "MMA - TBD",
+  "MMA - Por confirmar",
 ] as const;
 
 const base = {
