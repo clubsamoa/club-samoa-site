@@ -103,6 +103,13 @@ export const ExamenMmaJjSchema = z.object({
 
 // Variantes de formulario. El backend solo distingue "uniforme" | "examen"
 // (form_type); la variante decide qué esquema valida.
+//
+// Las dos variantes de examen NO tienen interfaz desde septiembre de 2026:
+// /alumnos las sustituyó por un botón de WhatsApp con mensaje prellenado
+// (commit 6d017c6) porque se registraban alumnos que no iban a presentar.
+// Se conservan, junto con sus esquemas y listas de arriba, porque el Apps
+// Script sigue teniendo el flujo completo de exámenes y así reactivarlas es
+// revertir un commit. Decidir si se borran cuando se rehaga el backend (N23).
 export const FORM_VARIANTS = {
   uniforme: { schema: UniformeSchema, formType: "uniforme" },
   "examen-lima-kick": { schema: ExamenLimaKickSchema, formType: "examen" },
