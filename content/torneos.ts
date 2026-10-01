@@ -97,3 +97,40 @@ export const TORNEOS_PASADOS: Torneo[] = [
     registroAbierto: false,
   },
 ];
+
+// Anuncio de bienvenida: el boleto que sale al abrir cualquier página del
+// sitio público. Es solo para el torneo de aniversario del club, así que es
+// un objeto único y no una lista. Deja de mostrarse solo después de `hasta`;
+// para quitarlo antes, pon ANUNCIO_TORNEO = null.
+export type AnuncioTorneo = {
+  /** Identifica el anuncio en el navegador del visitante (para no repetirlo). */
+  id: string;
+  eyebrow: string;
+  evento: string;
+  /** Lo que va en grande, una línea por entrada. */
+  titulo: string[];
+  sede: string;
+  /** Línea de texto normal debajo del boleto. */
+  detalle: string;
+  /** Texto vertical del talón y marca de agua al fondo. */
+  talon: string;
+  marca: string;
+  /** Último día que se muestra, inclusive, en formato YYYY-MM-DD. */
+  hasta: string;
+  /** A dónde lleva "Ver el torneo". */
+  href: string;
+};
+
+export const ANUNCIO_TORNEO: AnuncioTorneo | null = {
+  id: "campeonato-abierto-2026",
+  eyebrow: "Club Samoa presenta",
+  evento: "Campeonato Abierto de Artes Marciales",
+  titulo: ["24 de", "octubre"],
+  sede: "Domo Uno, Cd. Madero",
+  detalle:
+    "Ciudad Madero, Tamaulipas — Domo Uno (Centro de Convenciones). Registro abierto por WhatsApp.",
+  talon: "Entrada",
+  marca: "2026",
+  hasta: "2026-10-24",
+  href: "/comunidad#torneos",
+};

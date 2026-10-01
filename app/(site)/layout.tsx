@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AnuncioTorneo from "@/components/site/AnuncioTorneo";
 import Header from "@/components/site/Header";
 import SmokeBackground from "@/components/site/SmokeBackground";
 import { clubSamoaJsonLd } from "@/lib/jsonld";
@@ -43,6 +44,7 @@ export default function SiteLayout({
         <Header />
         {children}
       </div>
+      <AnuncioTorneo />
     </>
   );
 }

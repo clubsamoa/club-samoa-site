@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { E2E_PASSWORD } from "../playwright.config";
+import { anuncioYaVisto } from "./anuncio";
 
 // Auditoría de accesibilidad (N20) con axe-core sobre las 3 páginas
 // públicas, el login, las pantallas del admin (con el dataset del mock) y
@@ -72,10 +73,37 @@ async function login(page: Page) {
 test.describe("axe: sitio público", () => {
   for (const ruta of ["/", "/alumnos", "/comunidad", "/login"]) {
     test(`sin violaciones graves en ${ruta}`, async ({ page }) => {
+      // Sin el boleto encima: la página es lo que se audita aquí.
+      await anuncioYaVisto(page);
       await page.goto(ruta);
       await auditar(page, ruta);
     });
   }
+
+  test("anuncio del torneo: boleto, foco atrapado y Escape", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const modal = page.getByRole("dialog");
+    await expect(modal).toBeVisible({ timeout: 15_000 });
+    await auditar(page, "anuncio del torneo");
+
+    // El foco entra al modal y Tab no se escapa a la página de atrás.
+    for (let i = 0; i < 8; i += 1) {
+      await page.keyboard.press("Tab");
+      const dentro = await modal.evaluate((el) =>
+        el.contains(document.activeElement),
+      );
+      expect(dentro, `Tab #${i + 1} se salió del anuncio`).toBe(true);
+    }
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toBeHidden();
+
+    // Cerrado queda cerrado: no vuelve a salir el mismo día.
+    await page.goto("/comunidad");
+    await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 5_000 });
+  });
 });
 
 test.describe("axe: admin", () => {

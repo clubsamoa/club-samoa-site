@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { anuncioYaVisto } from "./anuncio";
 
 // Flujo 1 (N19): sitio público — la home carga, la navegación funciona y los
 // anchors de los dropdowns saltan a su sección.
@@ -9,6 +10,10 @@ async function anchorVisible(page: Page, id: string) {
   // El anchor "saltó": la sección quedó dentro del viewport.
   await expect(section).toBeInViewport();
 }
+
+test.beforeEach(async ({ page }) => {
+  await anuncioYaVisto(page);
+});
 
 test("la home carga con hero y secciones", async ({ page }) => {
   await page.goto("/");
