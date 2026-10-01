@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import CalendarioExamenes from "@/components/site/CalendarioExamenes";
 import RegistroForm from "@/components/site/RegistroForm";
 import SocialIcon from "@/components/site/SocialIcon";
 import { OG_IMAGE, WHATSAPP_URL } from "@/lib/constants";
+import { mesActual } from "@/lib/examenes";
 import { DISCIPLINAS_UNIFORME, PRODUCTOS, TALLAS } from "@/lib/registros";
 
 export const metadata: Metadata = {
@@ -254,31 +256,32 @@ export default function AlumnosPage() {
             sizes="(max-width: 980px) 100vw, 45vw"
             style={{ height: "auto" }}
           />
-          <h3>Pregunta por el siguiente examen.</h3>
+          <h3>Mira el mes que te toca.</h3>
           <p>
-            Las fechas de examen de Lima Lama, Kickboxing, MMA y Jiu Jitsu se
-            confirman directamente con el club, según la disciplina y el grado
-            de cada alumno.
+            Lima Lama, Kickboxing y Jiu Jitsu examinan en meses fijos que se
+            repiten cada año. El calendario se mueve solo: abre en el mes en
+            curso y marca con un punto los meses con examen. El día exacto se
+            confirma con el club, según la disciplina y el grado de cada alumno.
           </p>
         </div>
-        <article className="data-form examen-contacto">
-          <p className="eyebrow">Exámenes</p>
-          <h3>¿Cuándo es el siguiente examen?</h3>
-          <p>
-            Escríbenos por WhatsApp. El mensaje ya va escrito: solo completa tu
-            nombre, tu disciplina y tu grado actual, y te confirmamos la fecha
-            por ese mismo medio.
-          </p>
-          <a
-            className="button button-primary"
-            href={WHATSAPP_EXAMENES_URL}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <SocialIcon type="whatsapp" />
-            Preguntar por WhatsApp
-          </a>
-        </article>
+        <CalendarioExamenes mesInicial={mesActual()}>
+          <div className="examen-contacto">
+            <p>
+              Escríbenos por WhatsApp. El mensaje ya va escrito: solo completa
+              tu nombre, tu disciplina y tu grado actual, y te confirmamos la
+              fecha por ese mismo medio.
+            </p>
+            <a
+              className="button button-primary"
+              href={WHATSAPP_EXAMENES_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <SocialIcon type="whatsapp" />
+              Preguntar por WhatsApp
+            </a>
+          </div>
+        </CalendarioExamenes>
       </section>
     </main>
   );
