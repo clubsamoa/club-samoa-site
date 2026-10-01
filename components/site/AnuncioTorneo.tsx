@@ -69,6 +69,61 @@ export default function AnuncioTorneo() {
   );
 }
 
+// Inclinación 3D al pasar el mouse, como un boleto que se ladea en la mano.
+// Solo en ratón o trackpad: en una pantalla táctil no hay hover y el gesto no
+// se nota. Se escribe directo al DOM porque pointermove dispara decenas de
+// veces por segundo y no vale un render por cada una.
+
+const CON_MOUSE = "(hover: hover) and (pointer: fine)";
+const MENOS_MOVIMIENTO = "(prefers-reduced-motion: reduce)";
+const GRADOS = 6;
+const ESCALA = 1.015;
+const BRILLO = 0.18;
+
+const SIN_INCLINAR = "perspective(1200px)";
+
+function useInclinacion() {
+  const boletoRef = useRef<HTMLDivElement>(null);
+  const brilloRef = useRef<HTMLDivElement>(null);
+  const activoRef = useRef(false);
+
+  const alEntrar = useCallback(() => {
+    activoRef.current =
+      window.matchMedia(CON_MOUSE).matches &&
+      !window.matchMedia(MENOS_MOVIMIENTO).matches;
+    if (!activoRef.current) return;
+    // Sin transición mientras sigue al cursor; vuelve a ponerse al salir.
+    if (boletoRef.current) boletoRef.current.style.transition = "none";
+    if (brilloRef.current) brilloRef.current.style.transition = "none";
+  }, []);
+
+  const alMover = useCallback((evento: React.PointerEvent<HTMLDivElement>) => {
+    const boleto = boletoRef.current;
+    if (!activoRef.current || !boleto) return;
+    const caja = boleto.getBoundingClientRect();
+    const dx = (evento.clientX - caja.left) / caja.width - 0.5;
+    const dy = (evento.clientY - caja.top) / caja.height - 0.5;
+    boleto.style.transform = `${SIN_INCLINAR} rotateX(${-dy * 2 * GRADOS}deg) rotateY(${dx * 2 * GRADOS}deg) scale(${ESCALA})`;
+    if (brilloRef.current) {
+      brilloRef.current.style.background = `radial-gradient(38% 55% at ${(dx + 0.5) * 100}% ${(dy + 0.5) * 100}%, rgba(255, 255, 255, ${BRILLO}) 0%, rgba(255, 255, 255, 0) 70%)`;
+    }
+  }, []);
+
+  const alSalir = useCallback(() => {
+    activoRef.current = false;
+    if (boletoRef.current) {
+      boletoRef.current.style.transition = "";
+      boletoRef.current.style.transform = SIN_INCLINAR;
+    }
+    if (brilloRef.current) {
+      brilloRef.current.style.transition = "";
+      brilloRef.current.style.background = "transparent";
+    }
+  }, []);
+
+  return { boletoRef, brilloRef, alEntrar, alMover, alSalir };
+}
+
 function Dialogo({
   anuncio,
   cerrar,
@@ -79,6 +134,7 @@ function Dialogo({
   dialogoRef: React.RefObject<HTMLDivElement | null>;
 }) {
   useModalFocus(dialogoRef, cerrar);
+  const { boletoRef, brilloRef, alEntrar, alMover, alSalir } = useInclinacion();
 
   return (
     <div
@@ -103,9 +159,16 @@ function Dialogo({
           <span aria-hidden="true">×</span>
         </button>
 
-        <div className="boleto">
+        <div
+          className="boleto"
+          ref={boletoRef}
+          onPointerEnter={alEntrar}
+          onPointerMove={alMover}
+          onPointerLeave={alSalir}
+        >
           <div className="boleto-grano" aria-hidden="true" />
           <div className="boleto-perforacion" aria-hidden="true" />
+          <div className="boleto-brillo" ref={brilloRef} aria-hidden="true" />
 
           <div className="boleto-cuerpo">
             <p className="boleto-eyebrow">

@@ -2014,6 +2014,11 @@ textarea {
 
 .boleto {
   --perforacion: 76%;
+  /* Base del ladeo: el transform lo reescribe JS mientras el cursor está
+     encima y vuelve aquí al salir. */
+  transform: perspective(1200px);
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
   --muesca: clamp(11px, 3.4cqw, 18px);
   /* Tinta crema sobre rojo hondo: el rojo de marca puro (#f40706) deja el
      texto chico en 4.05:1, por debajo del mínimo de 4.5:1, así que el punto
@@ -2069,6 +2074,14 @@ textarea {
   opacity: 0.22;
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+.boleto-brillo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: transparent;
+  transition: background 420ms ease-out;
 }
 
 .boleto-perforacion {
@@ -2192,6 +2205,12 @@ textarea {
   .anuncio-fondo,
   .anuncio-dialogo {
     animation: none;
+  }
+
+  /* El ladeo ya no se arma en JS; esto cubre una transición a medias. */
+  .boleto,
+  .boleto-brillo {
+    transition: none;
   }
 }
 
