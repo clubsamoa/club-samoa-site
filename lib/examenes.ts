@@ -1,7 +1,7 @@
 import { DISCIPLINAS_CON_EXAMEN } from "@/content/examenes";
+import { ZONA_CLUB } from "@/lib/fechas";
 
-/** El club está en Ciudad Madero: el "mes actual" se calcula en esa zona. */
-export const ZONA_CLUB = "America/Monterrey";
+export { ZONA_CLUB };
 
 /** Un mes del calendario. `mes` va de 1 (enero) a 12 (diciembre). */
 export type MesCalendario = { anio: number; mes: number };

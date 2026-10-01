@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { anuncioYaVisto } from "./anuncio";
 
 // Flujo 2 (N19): formulario de pedido de uniforme. El server action postea al
 // mock (e2e/apps-script-mock.mjs), que responde { ok:true } y guarda el último
@@ -10,6 +11,10 @@ const MOCK = "http://127.0.0.1:8788/registros";
 // inspecciona solo los envíos de SU alumno.
 const NOMBRE_VALIDO = "Alumno E2E Playwright";
 const NOMBRE_REINTENTO = "Alumno Reintento";
+
+test.beforeEach(async ({ page }) => {
+  await anuncioYaVisto(page);
+});
 
 test("envío válido → panel de confirmación con folio", async ({ page }) => {
   await page.goto("/alumnos");
